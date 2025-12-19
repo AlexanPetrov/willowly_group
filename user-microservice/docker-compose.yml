@@ -1,12 +1,15 @@
 services:
   # PostgreSQL Database
+  # WARNING: These credentials are for LOCAL DEVELOPMENT ONLY
+  # DO NOT use these credentials in production environments
+  # Use environment variables or secrets management in production
   db:
     image: postgres:17-alpine
     container_name: user_microservice_db
     restart: unless-stopped
     environment:
       POSTGRES_USER: api_user
-      POSTGRES_PASSWORD: pass123
+      POSTGRES_PASSWORD: pass123  # DEV ONLY - Change in production!
       POSTGRES_DB: user_microservice_db
       POSTGRES_INITDB_ARGS: "--encoding=UTF8"
     ports:

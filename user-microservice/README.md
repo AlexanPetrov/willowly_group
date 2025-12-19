@@ -1,5 +1,7 @@
 # User Microservice
 
+> **Part of [Willowly Group](https://github.com/AlexanPetrov/willowly_group)** - A microservices-based application platform
+
 A production-ready FastAPI microservice for user management with JWT authentication, built with modern Python async patterns and PostgreSQL.
 
 ## 🚀 Features
@@ -52,8 +54,8 @@ Choose between local development or Docker. Docker is recommended for new develo
 
 ```bash
 # Clone and start
-git clone <your-repo-url>
-cd User_Microservice
+git clone https://github.com/AlexanPetrov/willowly_group.git
+cd willowly_group/user-microservice
 
 # Build and start all services
 make docker-build
@@ -79,8 +81,8 @@ Skip to [Docker Commands](#-docker-commands) section below.
 ### 1. Clone & Setup
 
 ```bash
-git clone <your-repo-url>
-cd User_Microservice
+git clone https://github.com/AlexanPetrov/willowly_group.git
+cd willowly_group/user-microservice
 uv venv
 source .venv/bin/activate  # macOS/Linux
 uv sync
@@ -544,7 +546,12 @@ make test-utils        # Utility function tests
 
 ## � CI/CD Pipeline
 
-The project includes a GitHub Actions workflow that automatically runs tests on every push to `main` and on pull requests.
+This microservice is part of the [willowly_group](https://github.com/AlexanPetrov/willowly_group) monorepo. The GitHub Actions workflow automatically runs tests when user-microservice files change.
+
+### Workflow Configuration
+- **Location**: `/.github/workflows/user-microservice-test.yml` (at monorepo root)
+- **Triggers**: Only runs when `user-microservice/**` files change
+- **Scope**: Tests run in the user-microservice context
 
 ### Workflow Steps
 1. ✅ Checkout code
@@ -555,14 +562,14 @@ The project includes a GitHub Actions workflow that automatically runs tests on 
 6. ✅ Report results
 
 ### Viewing Results
-- Check the **Actions** tab in your GitHub repository
+- Check the **Actions** tab at [github.com/AlexanPetrov/willowly_group](https://github.com/AlexanPetrov/willowly_group/actions)
 - Each push/PR shows a green ✅ or red ❌ status
 - Click on workflow runs for detailed logs
 
 ### GitHub Actions Usage
 - **Free Tier**: 2,000 minutes/month
 - **Typical Usage**: ~10-15 minutes per workflow run
-- **Conservative**: Runs only on `main` branch and PRs
+- **Path Filtering**: Only runs for user-microservice changes (conserves minutes)
 - No billing unless you explicitly opt-in (spending limit defaults to $0)
 
 ## �🗄️ Database Management

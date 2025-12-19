@@ -77,11 +77,13 @@ jobs:
     - name: Run migrations
       run: uv run alembic upgrade head
       env:
+        APP_ENV: test
         DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
     
     - name: Run tests
       run: uv run pytest -v --tb=short
       env:
+        APP_ENV: test
         DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379/1
         SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing

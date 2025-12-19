@@ -39,7 +39,7 @@ jobs:
         cat > .env.test << 'EOF'
         APP_NAME=User Microservice
         APP_ENV=test
-        DB_URL=postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        DB_URL=postgresql+asyncpg://api_user:pass123@localhost:5432/user_microservice_db
         JWT_SECRET_KEY=test-secret-key-minimum-32-characters-long-for-testing
         JWT_ALGORITHM=HS256
         JWT_EXPIRATION_MINUTES=30
@@ -59,7 +59,7 @@ jobs:
     - name: Wait for PostgreSQL
       working-directory: user-microservice
       run: |
-        until docker compose exec -T db pg_isready -U test_user -d test_db; do
+        until docker compose exec -T db pg_isready -U api_user -d user_microservice_db; do
           echo "Waiting for PostgreSQL..."
           sleep 2
         done
@@ -79,14 +79,14 @@ jobs:
       run: uv run alembic upgrade head
       env:
         APP_ENV: test
-        DB_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        DB_URL: postgresql+asyncpg://api_user:pass123@localhost:5432/user_microservice_db
         JWT_SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
     
     - name: Run tests
       run: uv run pytest -v --tb=short
       env:
         APP_ENV: test
-        DB_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        DB_URL: postgresql+asyncpg://api_user:pass123@localhost:5432/user_microservice_db
         REDIS_URL: redis://localhost:6379/1
         JWT_SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
         ENABLE_METRICS: "false"

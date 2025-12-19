@@ -36,17 +36,18 @@ jobs:
     
     - name: Create .env.test file
       run: |
-        cp .env.test.example .env.test || cat > .env.test << 'EOF'
-        ENV=test
-        DEBUG=False
-        LOG_LEVEL=INFO
-        DATABASE_URL=postgresql+asyncpg://test_user:test_pass@postgres:5432/test_db
-        SECRET_KEY=test-secret-key-minimum-32-characters-long-for-testing
-        ACCESS_TOKEN_EXPIRE_MINUTES=30
-        REDIS_URL=redis://redis:6379/1
+        cat > .env.test << 'EOF'
+        APP_NAME=User Microservice
+        APP_ENV=test
+        DB_URL=postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        JWT_SECRET_KEY=test-secret-key-minimum-32-characters-long-for-testing
+        JWT_ALGORITHM=HS256
+        JWT_EXPIRATION_MINUTES=30
+        REDIS_URL=redis://localhost:6379/1
         CACHE_TTL=300
         CACHE_ENABLED=true
         ENABLE_METRICS=false
+        LOG_LEVEL=INFO
         EOF
     
     - name: Start services
@@ -78,16 +79,16 @@ jobs:
       run: uv run alembic upgrade head
       env:
         APP_ENV: test
-        DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        DB_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        JWT_SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
     
     - name: Run tests
       run: uv run pytest -v --tb=short
       env:
         APP_ENV: test
-        DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        DB_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
         REDIS_URL: redis://localhost:6379/1
-        SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
-        ENV: test
+        JWT_SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
         ENABLE_METRICS: "false"
     
     - name: Stop services

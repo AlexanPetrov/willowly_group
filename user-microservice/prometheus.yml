@@ -1,0 +1,35 @@
+# Prometheus configuration for scraping metrics from User Microservice
+
+global:
+  scrape_interval: 15s      # How often to scrape targets
+  evaluation_interval: 15s  # How often to evaluate rules
+  
+  # Attach these labels to any time series or alerts
+  external_labels:
+    monitor: 'user-microservice'
+    environment: 'dev'
+
+# Scrape configurations
+scrape_configs:
+  # Scrape metrics from the FastAPI app
+  - job_name: 'user-microservice'
+    
+    # Override global scrape_interval for this job
+    scrape_interval: 5s
+    
+    # Metrics endpoint exposed by the app
+    static_configs:
+      - targets: ['app:8000']
+        labels:
+          service: 'user-api'
+    
+    # Path to scrape metrics from
+    metrics_path: '/metrics'
+    
+    # Use HTTP scheme (not HTTPS)
+    scheme: http
+
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

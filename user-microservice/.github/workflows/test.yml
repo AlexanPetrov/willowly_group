@@ -1,0 +1,80 @@
+name: Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Create .env.test file
+      run: |
+        cp .env.test.example .env.test || cat > .env.test << 'EOF'
+        ENV=test
+        DEBUG=False
+        LOG_LEVEL=INFO
+        DATABASE_URL=postgresql+asyncpg://test_user:test_pass@postgres:5432/test_db
+        SECRET_KEY=test-secret-key-minimum-32-characters-long-for-testing
+        ACCESS_TOKEN_EXPIRE_MINUTES=30
+        REDIS_URL=redis://redis:6379/1
+        CACHE_TTL=300
+        CACHE_ENABLED=true
+        ENABLE_METRICS=false
+        EOF
+    
+    - name: Start services
+      run: |
+        docker-compose up -d postgres redis
+        sleep 5
+    
+    - name: Wait for PostgreSQL
+      run: |
+        until docker-compose exec -T postgres pg_isready -U test_user -d test_db; do
+          echo "Waiting for PostgreSQL..."
+          sleep 2
+        done
+    
+    - name: Wait for Redis
+      run: |
+        until docker-compose exec -T redis redis-cli ping; do
+          echo "Waiting for Redis..."
+          sleep 2
+        done
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Run migrations
+      run: uv run alembic upgrade head
+      env:
+        DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+    
+    - name: Run tests
+      run: uv run pytest -v --tb=short
+      env:
+        DATABASE_URL: postgresql+asyncpg://test_user:test_pass@localhost:5432/test_db
+        REDIS_URL: redis://localhost:6379/1
+        SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
+        ENV: test
+        ENABLE_METRICS: "false"
+    
+    - name: Stop services
+      if: always()
+      run: docker-compose down -v

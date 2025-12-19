@@ -1,0 +1,85 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+*.pyo
+*.pyd
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# uv lock file
+uv.lock
+
+# Environment files (keep examples)
+.env
+.env.dev
+.env.prod
+.env.test
+!.env.*.example
+
+# Personal notes
+notes.txt
+
+# Log files
+*.log
+logs/
+app.log
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+*.db
+*.db-journal
+test_*.db
+
+# Linting
+.ruff_cache/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SQL session files
+*.session.sql
+
+# Docker
+docker-compose.override.yml
+*.dockerfile.tmp
+
+# Monitoring data (Prometheus/Grafana)
+prometheus_data/
+grafana_data/

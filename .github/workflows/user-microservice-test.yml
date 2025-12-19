@@ -1,10 +1,20 @@
-name: Test
+name: User Microservice Test
 
 on:
   push:
     branches: [ main ]
+    paths:
+      - 'user-microservice/**'
+      - '.github/workflows/user-microservice-test.yml'
   pull_request:
     branches: [ main ]
+    paths:
+      - 'user-microservice/**'
+      - '.github/workflows/user-microservice-test.yml'
+
+defaults:
+  run:
+    working-directory: user-microservice
 
 jobs:
   test:
@@ -40,11 +50,13 @@ jobs:
         EOF
     
     - name: Start services
+      working-directory: user-microservice
       run: |
         docker-compose up -d postgres redis
         sleep 5
     
     - name: Wait for PostgreSQL
+      working-directory: user-microservice
       run: |
         until docker-compose exec -T postgres pg_isready -U test_user -d test_db; do
           echo "Waiting for PostgreSQL..."
@@ -52,6 +64,7 @@ jobs:
         done
     
     - name: Wait for Redis
+      working-directory: user-microservice
       run: |
         until docker-compose exec -T redis redis-cli ping; do
           echo "Waiting for Redis..."
@@ -76,5 +89,6 @@ jobs:
         ENABLE_METRICS: "false"
     
     - name: Stop services
+      working-directory: user-microservice
       if: always()
       run: docker-compose down -v

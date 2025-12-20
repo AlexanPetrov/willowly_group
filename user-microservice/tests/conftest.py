@@ -8,6 +8,9 @@ import os
 # Set TEST_MODE before any app imports to disable rate limiting
 os.environ["TEST_MODE"] = "1"
 
+# Enable metrics endpoint for testing
+os.environ["ENABLE_METRICS"] = "true"
+
 # Detect Docker BEFORE any app imports. Default to Docker host when SKIP_ENV_FILE is set.
 db_host_env = os.getenv("TEST_DB_HOST")
 DB_HOST = db_host_env if db_host_env else ("db" if os.getenv("SKIP_ENV_FILE") else "localhost")

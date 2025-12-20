@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "user-microservice"
 version = "0.1.0"
@@ -22,6 +26,9 @@ dependencies = [
     "redis>=5.2.0",
     "prometheus-fastapi-instrumentator>=7.0.0",
 ]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
 
 [dependency-groups]
 dev = [

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
-from .config import USER_NAME_MAX_LENGTH, USER_EMAIL_MAX_LENGTH
+from .config import settings
 
 
 # Error Response Schema
@@ -24,8 +24,8 @@ class ErrorCode:
 
 class UserOut(BaseModel):
     id: int
-    name: str = Field(..., max_length=USER_NAME_MAX_LENGTH)
-    email: EmailStr = Field(..., max_length=USER_EMAIL_MAX_LENGTH)
+    name: str = Field(..., max_length=settings.USER_NAME_MAX_LENGTH)
+    email: EmailStr = Field(..., max_length=settings.USER_EMAIL_MAX_LENGTH)
     is_active: bool
     created_at: datetime
 
@@ -33,8 +33,8 @@ class UserOut(BaseModel):
 # Authentication Schemas
 class UserRegister(BaseModel):
     """Schema for user registration with password."""
-    name: str = Field(..., min_length=1, max_length=USER_NAME_MAX_LENGTH, description="User's full name")
-    email: EmailStr = Field(..., max_length=USER_EMAIL_MAX_LENGTH, description="User's email address")
+    name: str = Field(..., min_length=1, max_length=settings.USER_NAME_MAX_LENGTH, description="User's full name")
+    email: EmailStr = Field(..., max_length=settings.USER_EMAIL_MAX_LENGTH, description="User's email address")
     password: str = Field(..., min_length=8, max_length=100, description="User's password (min 8 characters)")
     
     @field_validator('name')

@@ -18,7 +18,7 @@ from .schemas import (
 from .models import User
 from .dependencies import get_current_active_user
 from . import services
-from .config import settings, DEFAULT_PAGE, DEFAULT_LIMIT, RATE_LIMIT_BATCH, RATE_LIMIT_WRITE, RATE_LIMIT_READ
+from .config import settings
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
@@ -52,7 +52,6 @@ async def health_check():
     """
     from . import db
     from .cache import cache_manager
-    from sqlalchemy import text
     
     health_status = {
         "status": "healthy",
@@ -60,14 +59,19 @@ async def health_check():
         "environment": settings.APP_ENV,
     }
     
-    # Check database connectivity
+    # Check database connectivity with retry logic
     try:
-        async with db.async_session() as session:
-            await session.execute(text("SELECT 1"))
-        health_status["database"] = "connected"
+        is_db_healthy = await db.check_db_connection()
+        if is_db_healthy:
+            health_status["database"] = "connected"
+        else:
+            health_status["status"] = "unhealthy"
+            health_status["database"] = "disconnected"
+            from fastapi import HTTPException
+            raise HTTPException(status_code=503, detail=health_status)
     except Exception as e:
         health_status["status"] = "unhealthy"
-        health_status["database"] = f"disconnected: {str(e)}"
+        health_status["database"] = f"error: {str(e)}"
         from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=health_status)
     
@@ -97,7 +101,7 @@ async def favicon():
 # ============================================================================
 
 @router.post("/auth/register", response_model=UserOut, status_code=201)
-@conditional_limit(RATE_LIMIT_WRITE)
+@conditional_limit(settings.RATE_LIMIT_WRITE)
 async def register(user: UserRegister, request: Request):
     """Register a new user with email and password.
     
@@ -114,7 +118,7 @@ async def register(user: UserRegister, request: Request):
 
 
 @router.post("/auth/login", response_model=Token)
-@conditional_limit(RATE_LIMIT_WRITE)
+@conditional_limit(settings.RATE_LIMIT_WRITE)
 async def login(credentials: UserLogin, request: Request):
     """Authenticate a user and return a JWT access token.
     
@@ -131,7 +135,7 @@ async def login(credentials: UserLogin, request: Request):
 
 
 @router.get("/users/me", response_model=UserOut)
-@conditional_limit(RATE_LIMIT_READ)
+@conditional_limit(settings.RATE_LIMIT_READ)
 async def get_current_user(
     request: Request,
     current_user: User = Depends(get_current_active_user),
@@ -162,23 +166,23 @@ async def get_current_user(
 # ============================================================================
 
 @router.post("/users/batch-create", response_model=BatchCreateResponse)
-@conditional_limit(RATE_LIMIT_BATCH)
+@conditional_limit(settings.RATE_LIMIT_BATCH)
 async def batch_create(req: BatchCreateRequest, request: Request):
     return await services.batch_create_users(req)
 
 
 @router.post("/users/batch-delete", response_model=BatchDeleteResponse)
-@conditional_limit(RATE_LIMIT_BATCH)
+@conditional_limit(settings.RATE_LIMIT_BATCH)
 async def batch_delete(req: BatchDeleteRequest, request: Request):
     return await services.batch_delete_users(req)
 
 
 @router.get("/users", response_model=PaginatedUserResponse)
-@conditional_limit(RATE_LIMIT_READ)
+@conditional_limit(settings.RATE_LIMIT_READ)
 async def list_users(
     request: Request,
-    page: int = DEFAULT_PAGE,
-    limit: int = DEFAULT_LIMIT,
+    page: int = settings.DEFAULT_PAGE,
+    limit: int = settings.DEFAULT_LIMIT,
     email: str | None = None, # filter by email
     email_domain: str | None = None, # filter by email domain
     sort: str = "id",
@@ -195,12 +199,12 @@ async def list_users(
 
 
 @router.get("/users/search", response_model=PaginatedUserResponse)
-@conditional_limit(RATE_LIMIT_READ)
+@conditional_limit(settings.RATE_LIMIT_READ)
 async def search_users(
     request: Request,
     q: str,
-    page: int = DEFAULT_PAGE, # pagination
-    limit: int = DEFAULT_LIMIT, # pagination
+    page: int = settings.DEFAULT_PAGE, # pagination
+    limit: int = settings.DEFAULT_LIMIT, # pagination
     sort: str = "id",
     order: str = "asc",
 ):
@@ -214,12 +218,12 @@ async def search_users(
 
 
 @router.get("/users/{user_id}", response_model=UserOut)
-@conditional_limit(RATE_LIMIT_READ)
+@conditional_limit(settings.RATE_LIMIT_READ)
 async def get_user(user_id: int, request: Request):
     return await services.get_user(user_id)
 
 
 @router.delete("/users/{user_id}", response_model=UserOut)
-@conditional_limit(RATE_LIMIT_WRITE)
+@conditional_limit(settings.RATE_LIMIT_WRITE)
 async def delete_user(user_id: int, request: Request):
     return await services.delete_user(user_id)

@@ -4,7 +4,7 @@
 
 from .models import User
 from . import db
-from .config import CHUNK_SIZE
+from .config import settings
 from .logger import logger
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, func, or_
@@ -122,8 +122,8 @@ async def insert_users(items: list[dict]) -> list[User]:
         if 'hashed_password' not in item:
             raise ValueError("Each user item must include 'hashed_password' field")
     
-    total_chunks = (len(items) + CHUNK_SIZE - 1) // CHUNK_SIZE
-    logger.debug(f"Processing {len(items)} users in {total_chunks} chunks of {CHUNK_SIZE} (atomic transaction)")
+    total_chunks = (len(items) + settings.CHUNK_SIZE - 1) // settings.CHUNK_SIZE
+    logger.debug(f"Processing {len(items)} users in {total_chunks} chunks of {settings.CHUNK_SIZE} (atomic transaction)")
     
     # Single session for entire batch - atomic transaction
     async with db.async_session() as session:
@@ -132,9 +132,9 @@ async def insert_users(items: list[dict]) -> list[User]:
                 all_users = []
                 
                 # Process in chunks for memory efficiency
-                for i in range(0, len(items), CHUNK_SIZE):
-                    chunk = items[i:i + CHUNK_SIZE]
-                    chunk_num = (i // CHUNK_SIZE) + 1
+                for i in range(0, len(items), settings.CHUNK_SIZE):
+                    chunk = items[i:i + settings.CHUNK_SIZE]
+                    chunk_num = (i // settings.CHUNK_SIZE) + 1
                     logger.debug(f"Processing chunk {chunk_num}/{total_chunks} ({len(chunk)} users)")
                     
                     objs = [
@@ -176,8 +176,8 @@ async def delete_users(ids: list[int]) -> list[User]:
     if not ids:
         return []
     
-    total_chunks = (len(ids) + CHUNK_SIZE - 1) // CHUNK_SIZE
-    logger.debug(f"Processing {len(ids)} deletions in {total_chunks} chunks of {CHUNK_SIZE} (atomic transaction)")
+    total_chunks = (len(ids) + settings.CHUNK_SIZE - 1) // settings.CHUNK_SIZE
+    logger.debug(f"Processing {len(ids)} deletions in {total_chunks} chunks of {settings.CHUNK_SIZE} (atomic transaction)")
     
     # Single session for entire batch - atomic transaction
     async with db.async_session() as session:
@@ -186,9 +186,9 @@ async def delete_users(ids: list[int]) -> list[User]:
                 all_deleted = []
                 
                 # Process in chunks for memory efficiency
-                for i in range(0, len(ids), CHUNK_SIZE):
-                    chunk = ids[i:i + CHUNK_SIZE]
-                    chunk_num = (i // CHUNK_SIZE) + 1
+                for i in range(0, len(ids), settings.CHUNK_SIZE):
+                    chunk = ids[i:i + settings.CHUNK_SIZE]
+                    chunk_num = (i // settings.CHUNK_SIZE) + 1
                     logger.debug(f"Processing chunk {chunk_num}/{total_chunks} ({len(chunk)} users)")
                     
                     result = await session.execute(select(User).where(User.id.in_(chunk)))

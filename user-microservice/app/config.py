@@ -39,6 +39,12 @@ class Settings(BaseSettings):
     DB_POOL_TIMEOUT: int = 30  # Seconds to wait for connection from pool
     DB_POOL_RECYCLE: int = 3600  # Recycle connections after 1 hour
     
+    # Database resilience settings
+    DB_RETRY_MAX_ATTEMPTS: int = 3  # Maximum retry attempts for failed queries
+    DB_RETRY_BASE_DELAY: float = 0.5  # Base delay for exponential backoff (seconds)
+    DB_QUERY_TIMEOUT: int = 60  # Query execution timeout (seconds)
+    DB_CONNECT_TIMEOUT: int = 10  # Connection timeout (seconds)
+    
     # CORS settings
     CORS_ORIGINS: str = "http://localhost:3000"  # Comma-separated list of allowed origins
     
@@ -64,6 +70,9 @@ class Settings(BaseSettings):
     RATE_LIMIT_BATCH: str = "10/minute"
     RATE_LIMIT_WRITE: str = "60/minute"
     RATE_LIMIT_READ: str = "100/minute"
+    
+    # Graceful shutdown settings
+    GRACEFUL_SHUTDOWN_TIMEOUT: int = 30  # Max seconds to wait for active requests to complete
     
     # Logging settings
     LOG_LEVEL: str = "INFO"  # DEBUG, INFO, WARNING, ERROR, CRITICAL
@@ -100,15 +109,3 @@ class Settings(BaseSettings):
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
 
 settings = Settings()
-
-# Expose as module-level constants for backward compatibility
-DEFAULT_PAGE = settings.DEFAULT_PAGE
-DEFAULT_LIMIT = settings.DEFAULT_LIMIT
-MAX_LIMIT = settings.MAX_LIMIT
-MAX_BATCH_SIZE = settings.MAX_BATCH_SIZE
-CHUNK_SIZE = settings.CHUNK_SIZE
-RATE_LIMIT_BATCH = settings.RATE_LIMIT_BATCH
-RATE_LIMIT_WRITE = settings.RATE_LIMIT_WRITE
-RATE_LIMIT_READ = settings.RATE_LIMIT_READ
-USER_NAME_MAX_LENGTH = settings.USER_NAME_MAX_LENGTH
-USER_EMAIL_MAX_LENGTH = settings.USER_EMAIL_MAX_LENGTH

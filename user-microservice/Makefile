@@ -57,31 +57,31 @@ install:
 	uv sync
 
 run:
-	APP_ENV=dev uv run uvicorn app.main:app
+	APP_ENV=dev uv run python -m uvicorn app.main:app
 
 dev:
-	APP_ENV=dev uv run uvicorn app.main:app --reload
+	APP_ENV=dev uv run python -m uvicorn app.main:app --reload --reload-dir app --reload-dir alembic
 
 prod:
-	APP_ENV=prod uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+	APP_ENV=prod uv run python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 test:
-	uv run pytest tests/ -q
+	uv run python -m pytest tests/ -q
 
 test-v:
-	uv run pytest tests/ -v
+	uv run python -m pytest tests/ -v
 
 test-crud:
-	uv run pytest tests/test_crud.py -v
+	uv run python -m pytest tests/test_crud.py -v
 
 test-services:
-	uv run pytest tests/test_services.py -v
+	uv run python -m pytest tests/test_services.py -v
 
 test-api:
-	uv run pytest tests/test_api.py -v
+	uv run python -m pytest tests/test_api.py -v
 
 test-utils:
-	uv run pytest tests/test_utils.py -v
+	uv run python -m pytest tests/test_utils.py -v
 
 lint:
 	uv run ruff check app/
@@ -173,7 +173,7 @@ docker-migrate:
 	docker-compose exec app alembic upgrade head
 
 docker-test:
-	docker-compose exec app pytest tests/ -v
+	docker-compose exec app python -m pytest tests/ -v
 
 docker-clean:
 	docker-compose down -v

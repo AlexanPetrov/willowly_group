@@ -31,7 +31,7 @@ A production-ready FastAPI microservice for user management with JWT authenticat
 ## 📋 Requirements
 
 ### Option 1: Local Development
-- Python 3.12+
+- Python 3.14+
 - PostgreSQL 17+
 - Redis 7.0+
 - uv (Python package manager)
@@ -150,7 +150,7 @@ uv run alembic upgrade head
 ```bash
 make dev
 # or
-APP_ENV=dev uv run uvicorn app.main:app --reload
+APP_ENV=dev uv run python -m uvicorn app.main:app --reload
 ```
 
 ### Docker Development
@@ -163,7 +163,7 @@ make docker-logs-app  # View logs
 ```bash
 make prod
 # or
-APP_ENV=prod uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
+APP_ENV=prod uv run python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 Server runs at: `http://localhost:8000`
@@ -528,7 +528,7 @@ make docker-logs-grafana     # View Grafana logs
 ```bash
 make test
 # or
-uv run pytest tests/ -v
+uv run python -m pytest tests/ -v
 ```
 
 ### Run Specific Test Suites
@@ -555,7 +555,7 @@ This microservice is part of the [willowly_group](https://github.com/AlexanPetro
 
 ### Workflow Steps
 1. ✅ Checkout code
-2. ✅ Set up Python 3.12 and uv
+2. ✅ Set up Python 3.14 and uv
 3. ✅ Start PostgreSQL and Redis services
 4. ✅ Run database migrations
 5. ✅ Execute all 113 tests

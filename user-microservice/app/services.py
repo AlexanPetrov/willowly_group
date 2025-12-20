@@ -24,10 +24,9 @@ from .crud import (
 )
 from .auth import hash_password, verify_password, create_access_token
 from .cache import cache_manager, make_cache_key, USER_BY_ID_PREFIX, USER_BY_EMAIL_PREFIX
-from .config import DEFAULT_PAGE, DEFAULT_LIMIT, MAX_LIMIT, MAX_BATCH_SIZE, settings
+from .config import settings
 from fastapi import HTTPException
 from .logger import logger
-from datetime import timedelta
 
 
 async def get_user(user_id: int) -> UserOut:
@@ -106,8 +105,8 @@ async def delete_user(user_id: int) -> UserOut:
 
 
 async def list_users(
-    page: int = DEFAULT_PAGE, # pagination
-    limit: int = DEFAULT_LIMIT, # pagination
+    page: int = settings.DEFAULT_PAGE, # pagination
+    limit: int = settings.DEFAULT_LIMIT, # pagination
     email: str | None = None, # filter by email
     email_domain: str | None = None, # filter by email domain
     sort: str = "id",
@@ -116,12 +115,12 @@ async def list_users(
     """List users with pagination, optional filters, and sorting."""
     # Validate inputs
     if page < 1:
-        page = DEFAULT_PAGE
+        page = settings.DEFAULT_PAGE
     # clamp limit between 1 and MAX_LIMIT
     if limit < 1:
-        limit = DEFAULT_LIMIT
-    if limit > MAX_LIMIT:
-        limit = MAX_LIMIT
+        limit = settings.DEFAULT_LIMIT
+    if limit > settings.MAX_LIMIT:
+        limit = settings.MAX_LIMIT
     # Validate sort field
     if sort not in ["id", "name", "email"]:
         sort = "id"
@@ -162,14 +161,14 @@ async def batch_create_users(data: BatchCreateRequest) -> BatchCreateResponse:
     Large batches are automatically chunked for efficient processing.
     """
     # Validate batch size
-    if len(data.items) > MAX_BATCH_SIZE:
-        logger.warning(f"Batch create rejected: size {len(data.items)} exceeds maximum {MAX_BATCH_SIZE}")
+    if len(data.items) > settings.MAX_BATCH_SIZE:
+        logger.warning(f"Batch create rejected: size {len(data.items)} exceeds maximum {settings.MAX_BATCH_SIZE}")
         raise HTTPException(
             status_code=400,
             detail={
                 "error": ErrorCode.BATCH_SIZE_EXCEEDED,
-                "message": f"Batch size {len(data.items)} exceeds maximum allowed size of {MAX_BATCH_SIZE}",
-                "details": {"provided": len(data.items), "maximum": MAX_BATCH_SIZE}
+                "message": f"Batch size {len(data.items)} exceeds maximum allowed size of {settings.MAX_BATCH_SIZE}",
+                "details": {"provided": len(data.items), "maximum": settings.MAX_BATCH_SIZE}
             }
         )
     logger.info(f"Batch creating {len(data.items)} users")
@@ -213,14 +212,14 @@ async def batch_delete_users(req: BatchDeleteRequest) -> BatchDeleteResponse:
     Large batches are automatically chunked for efficient processing.
     """
     # Validate batch size
-    if len(req.ids) > MAX_BATCH_SIZE:
-        logger.warning(f"Batch delete rejected: size {len(req.ids)} exceeds maximum {MAX_BATCH_SIZE}")
+    if len(req.ids) > settings.MAX_BATCH_SIZE:
+        logger.warning(f"Batch delete rejected: size {len(req.ids)} exceeds maximum {settings.MAX_BATCH_SIZE}")
         raise HTTPException(
             status_code=400,
             detail={
                 "error": ErrorCode.BATCH_SIZE_EXCEEDED,
-                "message": f"Batch size {len(req.ids)} exceeds maximum allowed size of {MAX_BATCH_SIZE}",
-                "details": {"provided": len(req.ids), "maximum": MAX_BATCH_SIZE}
+                "message": f"Batch size {len(req.ids)} exceeds maximum allowed size of {settings.MAX_BATCH_SIZE}",
+                "details": {"provided": len(req.ids), "maximum": settings.MAX_BATCH_SIZE}
             }
         )
     logger.info(f"Batch deleting {len(req.ids)} users")
@@ -250,19 +249,19 @@ async def batch_delete_users(req: BatchDeleteRequest) -> BatchDeleteResponse:
 
 async def search_users(
     q: str,
-    page: int = DEFAULT_PAGE,
-    limit: int = DEFAULT_LIMIT,
+    page: int = settings.DEFAULT_PAGE,
+    limit: int = settings.DEFAULT_LIMIT,
     sort: str = "id",
     order: str = "asc",
 ) -> PaginatedUserResponse:
     """Search users by name or email with pagination and sorting."""
     # Validate inputs
     if page < 1:
-        page = DEFAULT_PAGE
+        page = settings.DEFAULT_PAGE
     if limit < 1:
-        limit = DEFAULT_LIMIT
-    if limit > MAX_LIMIT:
-        limit = MAX_LIMIT
+        limit = settings.DEFAULT_LIMIT
+    if limit > settings.MAX_LIMIT:
+        limit = settings.MAX_LIMIT
     if sort not in ["id", "name", "email"]:
         sort = "id"
     if order not in ["asc", "desc"]:

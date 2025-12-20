@@ -19,12 +19,14 @@ A production-ready FastAPI microservice for user management with JWT authenticat
 
 ### Technical Features
 - **Async/Await** - Full async support with asyncpg and SQLAlchemy 2.0
+- **Database Resilience** - Automatic retry with exponential backoff, connection/query timeouts
+- **Graceful Shutdown** - Clean request completion and resource cleanup on termination
 - **Database Migrations** - Version-controlled schema changes with Alembic
 - **Structured Logging** - JSON and console logging with request tracking
 - **Input Validation** - Pydantic schemas with comprehensive validation
 - **Error Handling** - Standardized error responses with detailed messages
 - **Security Headers** - OWASP-recommended headers (CSP, HSTS, X-Frame-Options, etc.)
-- **Testing** - 113 tests covering all layers (API, services, CRUD, utils, cache, metrics, security)
+- **Testing** - 127 tests covering all layers (API, services, CRUD, utils, cache, metrics, security, resilience, shutdown)
 - **Environment-Based Config** - Separate dev/prod configurations
 - **Docker Compose** - Multi-container setup with app, PostgreSQL, Redis, Prometheus, Grafana
 

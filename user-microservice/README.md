@@ -695,6 +695,8 @@ User_Microservice/
 ├── app/
 │   ├── __init__.py
 │   ├── main.py           # FastAPI app & startup
+│   ├── middleware.py     # HTTP middleware (graceful shutdown, logging, security)
+│   ├── monitoring.py     # Prometheus metrics setup
 │   ├── config.py         # Settings & environment config
 │   ├── models.py         # SQLAlchemy models
 │   ├── schemas.py        # Pydantic schemas
@@ -703,7 +705,8 @@ User_Microservice/
 │   ├── crud.py           # Database operations
 │   ├── auth.py           # JWT & password handling
 │   ├── dependencies.py   # FastAPI dependencies
-│   ├── db.py             # Database session management
+│   ├── db.py             # Database connection pooling
+│   ├── cache.py          # Redis caching
 │   ├── logger.py         # Structured logging
 │   └── utils.py          # Utility functions
 ├── tests/

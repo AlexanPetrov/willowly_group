@@ -1,7 +1,4 @@
-"""
-Redis cache management for the User Microservice.
-Provides connection management and cache utilities.
-"""
+"""Redis cache management with connection pooling and graceful degradation."""
 
 import json
 from typing import Any, Optional
@@ -9,15 +6,43 @@ from redis import asyncio as aioredis
 from app.config import settings
 from app.logger import logger
 
+# ==================== Cache Key Utilities ====================
+
+USER_BY_ID_PREFIX = "user:id"
+USER_BY_EMAIL_PREFIX = "user:email"
+
+
+def make_cache_key(prefix: str, identifier: Any) -> str:
+    """Generate consistent cache key with namespace.
+    
+    Args:
+        prefix: Key prefix for namespacing (e.g., "user:id")
+        identifier: Unique identifier (id, email, etc.)
+        
+    Returns:
+        Formatted cache key (e.g., "user:id:123")
+    """
+    return f"{prefix}:{identifier}"
+
+# ==================== Cache Manager ====================
+
 
 class CacheManager:
-    """Manages Redis connections and cache operations."""
+    """Manages Redis connections and cache operations with graceful degradation.
+    
+    If Redis is unavailable, operations fail silently and return None/False,
+    allowing the application to continue without caching.
+    """
     
     def __init__(self):
         self._redis: Optional[aioredis.Redis] = None
     
     async def connect(self):
-        """Establish connection to Redis."""
+        """Establish connection to Redis.
+        
+        Creates a connection pool and verifies connectivity with ping.
+        Sets _redis to None if connection fails (graceful degradation).
+        """
         if self._redis is None:
             try:
                 self._redis = await aioredis.from_url(
@@ -33,7 +58,10 @@ class CacheManager:
                 self._redis = None
     
     async def disconnect(self):
-        """Close Redis connection."""
+        """Close Redis connection.
+        
+        Properly closes the connection pool during application shutdown.
+        """
         if self._redis:
             await self._redis.close()
             self._redis = None
@@ -116,7 +144,10 @@ class CacheManager:
     
     async def delete_pattern(self, pattern: str) -> int:
         """
-        Delete all keys matching pattern.
+        Delete all keys matching pattern using cursor-based iteration.
+        
+        Uses SCAN instead of KEYS to avoid blocking Redis in production.
+        Deletes keys in batches for efficiency.
         
         Args:
             pattern: Redis pattern (e.g., "user:*")
@@ -128,12 +159,26 @@ class CacheManager:
             return 0
         
         try:
-            keys = await self._redis.keys(pattern)
-            if keys:
-                deleted = await self._redis.delete(*keys)
-                logger.debug(f"[cache] DELETE PATTERN: {pattern} ({deleted} keys)")
-                return deleted
-            return 0
+            keys_to_delete = []
+            total_deleted = 0
+            
+            async for key in self._redis.scan_iter(match=pattern, count=100):
+                keys_to_delete.append(key)
+                
+                # Batch delete every 100 keys
+                if len(keys_to_delete) >= 100:
+                    await self._redis.delete(*keys_to_delete)
+                    total_deleted += len(keys_to_delete)
+                    keys_to_delete.clear()
+            
+            # Delete remaining keys
+            if keys_to_delete:
+                await self._redis.delete(*keys_to_delete)
+                total_deleted += len(keys_to_delete)
+            
+            if total_deleted > 0:
+                logger.debug(f"[cache] DELETE PATTERN: {pattern} ({total_deleted} keys)")
+            return total_deleted
         except Exception as e:
             logger.error(f"[cache] Error deleting pattern {pattern}: {e}")
             return 0
@@ -154,26 +199,6 @@ class CacheManager:
         except Exception:
             return False
 
+# ==================== Global Instance ====================
 
-# Global cache manager instance
 cache_manager = CacheManager()
-
-
-def make_cache_key(prefix: str, identifier: Any) -> str:
-    """
-    Generate consistent cache key.
-    
-    Args:
-        prefix: Key prefix (e.g., "user")
-        identifier: Unique identifier (id, email, etc.)
-        
-    Returns:
-        Cache key string
-    """
-    return f"{prefix}:{identifier}"
-
-
-# Cache key prefixes
-USER_BY_ID_PREFIX = "user:id"
-USER_BY_EMAIL_PREFIX = "user:email"
-

@@ -1,4 +1,4 @@
-# Blueprint for USER class that maps to DB table using SQLAlchemy ORM
+"""SQLAlchemy ORM models for database tables."""
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 from sqlalchemy.sql import func
@@ -7,6 +7,8 @@ from .config import settings
 
 
 class User(Base):
+    """User model mapped to 'users' table."""
+    
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)

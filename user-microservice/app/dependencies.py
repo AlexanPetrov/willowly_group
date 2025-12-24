@@ -1,4 +1,4 @@
-# FastAPI dependencies for authentication and authorization
+"""FastAPI dependencies for authentication and authorization."""
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -7,21 +7,14 @@ from .crud import select_user
 from .models import User
 from .schemas import ErrorCode
 
-# HTTP Bearer token scheme for Authorization header
+
+# ==================== Authentication Dependencies ====================
+
 security = HTTPBearer()
 
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
-    """Dependency to get the current authenticated user from JWT token.
-    
-    Validates the JWT token from the Authorization header and returns the user.
-    Raises HTTP 401 if token is invalid, expired, or user not found.
-    
-    Usage:
-        @router.get("/protected")
-        async def protected_route(current_user: User = Depends(get_current_user)):
-            return {"user_id": current_user.id}
-    """
+    """Get authenticated user from JWT token. Raises 401 if invalid/expired, 403 if inactive."""
     # Extract token from Authorization header
     token = credentials.credentials
     
@@ -79,10 +72,5 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
 
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
-    """Dependency to get the current active user.
-    
-    This is a convenience dependency that chains get_current_user and adds
-    an explicit active check (though get_current_user already checks this).
-    Use this for routes that specifically require an active user.
-    """
+    """Alias for get_current_user (already validates active status)."""
     return current_user

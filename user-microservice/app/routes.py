@@ -1,8 +1,7 @@
-# API route definitions (HTTP layer)
-# Defines ENDPOINTS
+"""API route definitions and HTTP endpoints."""
 
 import os
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import Response
 from .schemas import (
     UserOut,
@@ -24,7 +23,9 @@ from slowapi.util import get_remote_address
 
 limiter = Limiter(key_func=get_remote_address)
 
-# Helper to conditionally apply rate limiting (skip in tests)
+
+# ==================== Helper Functions ====================
+
 def conditional_limit(limit_string):
     """Apply rate limit only if not in test mode."""
     if os.getenv('TEST_MODE'):
@@ -34,6 +35,8 @@ def conditional_limit(limit_string):
         return decorator
     return limiter.limit(limit_string)
 
+
+# ==================== General Endpoints ====================
 
 router = APIRouter()
 
@@ -67,12 +70,10 @@ async def health_check():
         else:
             health_status["status"] = "unhealthy"
             health_status["database"] = "disconnected"
-            from fastapi import HTTPException
             raise HTTPException(status_code=503, detail=health_status)
     except Exception as e:
         health_status["status"] = "unhealthy"
         health_status["database"] = f"error: {str(e)}"
-        from fastapi import HTTPException
         raise HTTPException(status_code=503, detail=health_status)
     
     # Check Redis cache connectivity
@@ -96,41 +97,19 @@ async def favicon():
     return Response(status_code=204)
 
 
-# ============================================================================
-# Authentication Endpoints
-# ============================================================================
+# ==================== Authentication Endpoints ====================
 
 @router.post("/auth/register", response_model=UserOut, status_code=201)
 @conditional_limit(settings.RATE_LIMIT_WRITE)
 async def register(user: UserRegister, request: Request):
-    """Register a new user with email and password.
-    
-    Args:
-        user: UserRegister schema containing name, email, and password
-        
-    Returns:
-        UserOut: The created user data (without password)
-        
-    Raises:
-        400: Email already exists
-    """
+    """Register a new user. Raises 400 if email already exists."""
     return await services.register_user(user)
 
 
 @router.post("/auth/login", response_model=Token)
 @conditional_limit(settings.RATE_LIMIT_WRITE)
 async def login(credentials: UserLogin, request: Request):
-    """Authenticate a user and return a JWT access token.
-    
-    Args:
-        credentials: UserLogin schema containing email and password
-        
-    Returns:
-        Token: JWT access token and token type
-        
-    Raises:
-        401: Invalid credentials or inactive user
-    """
+    """Authenticate user and return JWT token. Raises 401 if invalid."""
     return await services.authenticate_user(credentials)
 
 
@@ -140,40 +119,23 @@ async def get_current_user(
     request: Request,
     current_user: User = Depends(get_current_active_user),
 ):
-    """Get the currently authenticated user's profile.
-    
-    Requires:
-        Authorization header with valid JWT Bearer token
-        
-    Returns:
-        UserOut: The authenticated user's data
-        
-    Raises:
-        401: Invalid or expired token
-        403: User is inactive
-    """
-    return UserOut(
-        id=current_user.id,
-        name=current_user.name,
-        email=current_user.email,
-        is_active=current_user.is_active,
-        created_at=current_user.created_at,
-    )
+    """Get authenticated user profile. Requires valid JWT token."""
+    return UserOut.model_validate(current_user)
 
 
-# ============================================================================
-# User Management Endpoints
-# ============================================================================
+# ==================== User Management Endpoints ====================
 
 @router.post("/users/batch-create", response_model=BatchCreateResponse)
 @conditional_limit(settings.RATE_LIMIT_BATCH)
 async def batch_create(req: BatchCreateRequest, request: Request):
+    """Create multiple users in a single atomic transaction."""
     return await services.batch_create_users(req)
 
 
 @router.post("/users/batch-delete", response_model=BatchDeleteResponse)
 @conditional_limit(settings.RATE_LIMIT_BATCH)
 async def batch_delete(req: BatchDeleteRequest, request: Request):
+    """Delete multiple users in a single atomic transaction."""
     return await services.batch_delete_users(req)
 
 
@@ -183,11 +145,12 @@ async def list_users(
     request: Request,
     page: int = settings.DEFAULT_PAGE,
     limit: int = settings.DEFAULT_LIMIT,
-    email: str | None = None, # filter by email
-    email_domain: str | None = None, # filter by email domain
+    email: str | None = None,
+    email_domain: str | None = None,
     sort: str = "id",
     order: str = "asc",
 ):
+    """List users with optional filters, sorting, and pagination."""
     return await services.list_users(
         page=page,
         limit=limit,
@@ -203,11 +166,12 @@ async def list_users(
 async def search_users(
     request: Request,
     q: str,
-    page: int = settings.DEFAULT_PAGE, # pagination
-    limit: int = settings.DEFAULT_LIMIT, # pagination
+    page: int = settings.DEFAULT_PAGE,
+    limit: int = settings.DEFAULT_LIMIT,
     sort: str = "id",
     order: str = "asc",
 ):
+    """Search users by name or email containing query string."""
     return await services.search_users(
         q=q,
         page=page,
@@ -220,10 +184,12 @@ async def search_users(
 @router.get("/users/{user_id}", response_model=UserOut)
 @conditional_limit(settings.RATE_LIMIT_READ)
 async def get_user(user_id: int, request: Request):
+    """Get user by ID. Uses cache if enabled."""
     return await services.get_user(user_id)
 
 
 @router.delete("/users/{user_id}", response_model=UserOut)
 @conditional_limit(settings.RATE_LIMIT_WRITE)
 async def delete_user(user_id: int, request: Request):
+    """Delete user by ID. Invalidates cache if enabled."""
     return await services.delete_user(user_id)

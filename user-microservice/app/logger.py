@@ -1,5 +1,4 @@
-# Centralized logging configuration
-# Provides a configured logger instance for the entire application
+"""Centralized logging configuration for the application."""
 
 import logging
 import sys
@@ -15,7 +14,7 @@ def setup_logger() -> logging.Logger:
     if logger.handlers:
         return logger
     
-    # Console handler - human-readable format for development
+    # Console handler
     console_handler = logging.StreamHandler(sys.stdout)
     console_format = logging.Formatter(
         fmt='%(asctime)s %(levelname)-8s [%(name)s] %(message)s',
@@ -24,12 +23,11 @@ def setup_logger() -> logging.Logger:
     console_handler.setFormatter(console_format)
     logger.addHandler(console_handler)
     
-    # File handler - persistent logs (optional)
+    # File handler (optional)
     if settings.LOG_FILE:
         try:
             file_handler = logging.FileHandler(settings.LOG_FILE)
             if settings.LOG_FORMAT == "json":
-                # JSON format for production log aggregation
                 import json
                 from datetime import datetime
                 
@@ -50,7 +48,6 @@ def setup_logger() -> logging.Logger:
                 
                 file_handler.setFormatter(JSONFormatter())
             else:
-                # Standard format for file logs
                 file_handler.setFormatter(console_format)
             
             logger.addHandler(file_handler)
@@ -60,5 +57,4 @@ def setup_logger() -> logging.Logger:
     return logger
 
 
-# Create singleton logger instance
 logger = setup_logger()

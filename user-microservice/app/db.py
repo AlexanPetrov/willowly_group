@@ -1,4 +1,4 @@
-# DB connection & session management
+"""Database connection pooling, session management, and resilience utilities."""
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
@@ -8,19 +8,20 @@ import asyncio
 from .config import settings
 from .logger import logger
 
-# Async connection pool with production-ready configuration
+# ==================== Connection Pool Setup ====================
+
 engine = create_async_engine(
     settings.DB_URL,
     echo=False,
     future=True,
-    pool_size=settings.DB_POOL_SIZE,  # Maintain 20 connections in pool
-    max_overflow=settings.DB_MAX_OVERFLOW,  # Allow 10 extra connections during peaks
-    pool_timeout=settings.DB_POOL_TIMEOUT,  # Wait 30s for connection
-    pool_recycle=settings.DB_POOL_RECYCLE,  # Recycle connections every hour
-    pool_pre_ping=True,  # Verify connections before using them
+    pool_size=settings.DB_POOL_SIZE,
+    max_overflow=settings.DB_MAX_OVERFLOW,
+    pool_timeout=settings.DB_POOL_TIMEOUT,
+    pool_recycle=settings.DB_POOL_RECYCLE,
+    pool_pre_ping=True,  # Verify connections before use
     connect_args={
-        "timeout": settings.DB_CONNECT_TIMEOUT,  # Connection timeout (seconds)
-        "command_timeout": settings.DB_QUERY_TIMEOUT,  # Query execution timeout (seconds)
+        "timeout": settings.DB_CONNECT_TIMEOUT,
+        "command_timeout": settings.DB_QUERY_TIMEOUT,
     },
 )
 
@@ -29,8 +30,13 @@ logger.info(
     f"max_overflow={settings.DB_MAX_OVERFLOW}, timeout={settings.DB_POOL_TIMEOUT}s"
 )
 
-# Factory that gives AsyncSession objects
+# Session factory for creating database sessions
 async_session = async_sessionmaker(engine, expire_on_commit=False, class_=AsyncSession)
+
+# Base class for ORM models
+Base = declarative_base()
+
+# ==================== Database Resilience ====================
 
 
 async def retry_on_db_error(func, max_retries: int = 3, base_delay: float = 0.5):
@@ -99,25 +105,14 @@ async def check_db_connection() -> bool:
         logger.error(f"Database health check failed: {str(e)}")
         return False
 
-# Class for all ORM models (models.py)
-Base = declarative_base()
-
-# Beforehand:
-    # Create database (user_microservice_db) - done manually once
-    # Start PostgreSQL server - via Homebrew
-    
-# NOTE: Schema is now managed by Alembic migrations (use `make migrate-up`)
-# The init_models() function below is kept for reference but should NOT be used
-# Uncomment only if you need to quickly recreate tables without migrations (not recommended)
-
-# async def init_models():
-#     """DEPRECATED: Use Alembic migrations instead. Kept for emergency use only."""
-#     async with engine.begin() as conn:
-#         await conn.run_sync(Base.metadata.create_all)
-
+# ==================== Cleanup ====================
 
 async def dispose_engine():
-    """Gracefully close all database connections."""
+    """Gracefully close all database connections.
+    
+    Called during application shutdown to properly cleanup connection pool.
+    Ensures all connections are closed before application terminates.
+    """
     logger.info("Disposing database engine and closing connections")
     try:
         await engine.dispose()

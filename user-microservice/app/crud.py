@@ -1,13 +1,29 @@
-# DB ACCESS layer
-# Functions use SQLAlchemy (ORM) to interact w/ PostgreSQL (SQL)
-# ORM objects/tuples are returned or ValueError is raised
+"""Database CRUD operations for user management."""
 
-from .models import User
-from . import db
-from .config import settings
-from .logger import logger
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select, func, or_
+from sqlalchemy.exc import IntegrityError
+
+from . import db
+from .models import User
+from .logger import logger
+from .config import settings
+
+
+# ==================== Helper Functions ====================
+
+def _create_user_snapshot(user: User) -> User:
+    """Create a detached snapshot of a user before deletion."""
+    snapshot = User()
+    snapshot.id = user.id
+    snapshot.name = user.name
+    snapshot.email = user.email
+    snapshot.hashed_password = user.hashed_password
+    snapshot.is_active = user.is_active
+    snapshot.created_at = user.created_at
+    return snapshot
+
+
+# ==================== Single User Operations ====================
 
 
 async def insert_user(name: str, email: str, hashed_password: str) -> User:
@@ -17,7 +33,7 @@ async def insert_user(name: str, email: str, hashed_password: str) -> User:
             async with session.begin():
                 user = User(name=name, email=email, hashed_password=hashed_password)
                 session.add(user)
-            await session.refresh(user) # to update ORM object
+            await session.refresh(user) # To update ORM object
             return user
         except IntegrityError as e:
             await session.rollback()
@@ -46,17 +62,10 @@ async def delete_user(user_id: int) -> User | None:
         if not user:
             return None
         try:
-            # Create snapshot with all fields before deleting
-            deleted = User()
-            deleted.id = user.id
-            deleted.name = user.name
-            deleted.email = user.email
-            deleted.hashed_password = user.hashed_password
-            deleted.is_active = user.is_active
-            deleted.created_at = user.created_at
+            snapshot = _create_user_snapshot(user)
             await session.delete(user)
             await session.commit()
-            return deleted
+            return snapshot
         except Exception:
             await session.rollback()
             logger.error(f"Failed to delete user id={user_id}", exc_info=True)
@@ -66,8 +75,8 @@ async def delete_user(user_id: int) -> User | None:
 async def list_users(
     skip: int,
     limit: int,
-    email: str | None = None, # filter by email
-    email_domain: str | None = None, # filter by email domain
+    email: str | None = None, # Filter by email
+    email_domain: str | None = None, # Filter by email domain
     sort: str = "id",
     order: str = "asc",
 ) -> tuple[list[User], int]:
@@ -96,7 +105,7 @@ async def list_users(
                 stmt = stmt.order_by(sort_column.desc())
             else:
                 stmt = stmt.order_by(sort_column.asc())
-            stmt = stmt.offset(skip).limit(limit) # pagination
+            stmt = stmt.offset(skip).limit(limit) # Pagination
             result = await session.execute(stmt)
             users = result.scalars().all()
             logger.debug(f"Query executed: returned {len(users)} users out of {total} total")
@@ -106,6 +115,8 @@ async def list_users(
             logger.error("Failed to list users", exc_info=True)
             raise
 
+
+# ==================== Batch Operations ====================
 
 async def insert_users(items: list[dict]) -> list[User]:
     """Insert multiple users in a single transaction, processing in chunks for memory efficiency.
@@ -198,13 +209,7 @@ async def delete_users(ids: list[int]) -> list[User]:
                         # Take snapshots before deletion with all fields
                         deleted = []
                         for u in users:
-                            snapshot = User()
-                            snapshot.id = u.id
-                            snapshot.name = u.name
-                            snapshot.email = u.email
-                            snapshot.hashed_password = u.hashed_password
-                            snapshot.is_active = u.is_active
-                            snapshot.created_at = u.created_at
+                            snapshot = _create_user_snapshot(u)
                             deleted.append(snapshot)
                             await session.delete(u)
                         all_deleted.extend(deleted)
@@ -220,6 +225,8 @@ async def delete_users(ids: list[int]) -> list[User]:
             logger.error(f"Batch delete failed: {str(e)} (transaction rolled back)", exc_info=True)
             raise RuntimeError(f"Failed to delete users: {str(e)}") from e
 
+
+# ==================== Search Operations ====================
 
 async def search_users(
     query: str,
@@ -257,7 +264,6 @@ async def search_users(
             users = result.scalars().all()
             logger.debug(f"Search query executed: found {len(users)} users (total matches: {total})")
             return users, total
-        except Exception:
-            await session.rollback()
-            logger.error(f"Search query failed for term '{query}'", exc_info=True)
+        except Exception as e:
+            logger.error(f"Search query failed for term '{query}': {str(e)}", exc_info=True)
             raise

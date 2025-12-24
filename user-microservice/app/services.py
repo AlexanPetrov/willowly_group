@@ -1,4 +1,8 @@
-# Business logic layer - RULES UNIQUE TO THIS APP
+"""Business logic layer for user operations with caching and validation.
+
+Handles user CRUD operations, authentication, batch operations, and search.
+Implements caching strategy for frequently accessed user data.
+"""
 
 from .schemas import (
     UserOut,
@@ -25,15 +29,80 @@ from .crud import (
 from .auth import hash_password, verify_password, create_access_token
 from .cache import cache_manager, make_cache_key, USER_BY_ID_PREFIX, USER_BY_EMAIL_PREFIX
 from .config import settings
+from .models import User
 from fastapi import HTTPException
 from .logger import logger
 
+# ==================== Helper Functions ====================
+
+
+def _convert_to_user_out(user: User) -> UserOut:
+    """Convert ORM User model to UserOut schema."""
+    return UserOut(
+        id=user.id,
+        name=user.name,
+        email=user.email,
+        is_active=user.is_active,
+        created_at=user.created_at,
+    )
+
+
+def _validate_pagination(page: int, limit: int) -> tuple[int, int, int]:
+    """Validate and normalize pagination parameters.
+    
+    Returns:
+        tuple: (page, limit, skip) normalized values
+    """
+    if page < 1:
+        page = settings.DEFAULT_PAGE
+    if limit < 1:
+        limit = settings.DEFAULT_LIMIT
+    if limit > settings.MAX_LIMIT:
+        limit = settings.MAX_LIMIT
+    skip = (page - 1) * limit
+    return page, limit, skip
+
+
+def _validate_sort_params(sort: str, order: str) -> tuple[str, str]:
+    """Validate and normalize sort parameters.
+    
+    Returns:
+        tuple: (sort, order) normalized values
+    """
+    if sort not in ["id", "name", "email"]:
+        sort = "id"
+    if order not in ["asc", "desc"]:
+        order = "asc"
+    return sort, order
+
+
+async def _cache_user(user_out: UserOut) -> None:
+    """Cache user data by both ID and email if caching is enabled."""
+    if settings.CACHE_ENABLED:
+        await cache_manager.set(
+            make_cache_key(USER_BY_ID_PREFIX, user_out.id),
+            user_out.model_dump()
+        )
+        await cache_manager.set(
+            make_cache_key(USER_BY_EMAIL_PREFIX, user_out.email),
+            user_out.model_dump()
+        )
+
+
+async def _invalidate_user_cache(user: User) -> None:
+    """Invalidate cached user data by both ID and email if caching is enabled."""
+    if settings.CACHE_ENABLED:
+        await cache_manager.delete(make_cache_key(USER_BY_ID_PREFIX, user.id))
+        await cache_manager.delete(make_cache_key(USER_BY_EMAIL_PREFIX, user.email))
+
+
+# ==================== User Operations ====================
+
 
 async def get_user(user_id: int) -> UserOut:
-    """Retrieve a user by ID with caching. Raises HTTP 404 if not found."""
+    """Retrieve a user by ID with caching."""
     logger.debug(f"Fetching user: id={user_id}")
     
-    # Try cache first if enabled
     if settings.CACHE_ENABLED:
         cache_key = make_cache_key(USER_BY_ID_PREFIX, user_id)
         cached_data = await cache_manager.get(cache_key)
@@ -41,7 +110,6 @@ async def get_user(user_id: int) -> UserOut:
             logger.debug(f"Cache hit for user: id={user_id}")
             return UserOut(**cached_data)
     
-    # Cache miss or disabled - fetch from DB
     user = await select_user(user_id)
     if not user:
         logger.warning(f"User not found: id={user_id}")
@@ -55,26 +123,14 @@ async def get_user(user_id: int) -> UserOut:
         )
     
     logger.debug(f"User retrieved from DB: id={user.id} email={user.email}")
-    user_out = UserOut(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        is_active=user.is_active,
-        created_at=user.created_at,
-    )
-    
-    # Store in cache if enabled
-    if settings.CACHE_ENABLED:
-        await cache_manager.set(cache_key, user_out.model_dump())
-        # Also cache by email for faster email lookups
-        email_cache_key = make_cache_key(USER_BY_EMAIL_PREFIX, user.email)
-        await cache_manager.set(email_cache_key, user_out.model_dump())
+    user_out = _convert_to_user_out(user)
+    await _cache_user(user_out)
     
     return user_out
 
 
 async def delete_user(user_id: int) -> UserOut:
-    """Delete a user by ID and invalidate cache. Raises HTTP 404 if not found."""
+    """Delete a user by ID and invalidate cache."""
     logger.info(f"Deleting user: id={user_id}")
     user = await crud_delete_user(user_id)
     if not user:
@@ -89,63 +145,37 @@ async def delete_user(user_id: int) -> UserOut:
         )
     
     logger.info(f"User deleted successfully: id={user.id} email={user.email}")
+    await _invalidate_user_cache(user)
     
-    # Invalidate cache for this user
-    if settings.CACHE_ENABLED:
-        await cache_manager.delete(make_cache_key(USER_BY_ID_PREFIX, user.id))
-        await cache_manager.delete(make_cache_key(USER_BY_EMAIL_PREFIX, user.email))
-    
-    return UserOut(
-        id=user.id,
-        name=user.name,
-        email=user.email,
-        is_active=user.is_active,
-        created_at=user.created_at,
-    )
+    return _convert_to_user_out(user)
 
 
 async def list_users(
-    page: int = settings.DEFAULT_PAGE, # pagination
-    limit: int = settings.DEFAULT_LIMIT, # pagination
-    email: str | None = None, # filter by email
-    email_domain: str | None = None, # filter by email domain
+    page: int = settings.DEFAULT_PAGE,
+    limit: int = settings.DEFAULT_LIMIT,
+    email: str | None = None,
+    email_domain: str | None = None,
     sort: str = "id",
     order: str = "asc",
 ) -> PaginatedUserResponse:
     """List users with pagination, optional filters, and sorting."""
-    # Validate inputs
-    if page < 1:
-        page = settings.DEFAULT_PAGE
-    # clamp limit between 1 and MAX_LIMIT
-    if limit < 1:
-        limit = settings.DEFAULT_LIMIT
-    if limit > settings.MAX_LIMIT:
-        limit = settings.MAX_LIMIT
-    # Validate sort field
-    if sort not in ["id", "name", "email"]:
-        sort = "id"
-    # Validate order
-    if order not in ["asc", "desc"]:
-        order = "asc"
-    # Calculate skip (0-indexed offset)
-    skip = (page - 1) * limit # convert page num into offset (how many rows to skip)
-    # Fetch from CRUD with optional filters and sorting
-    logger.debug(f"Listing users: page={page} limit={limit} filters=(email={email}, domain={email_domain}) sort={sort} order={order}")
-    users, total = await crud_list_users(skip, limit, email=email, email_domain=email_domain, sort=sort, order=order)
-    # Calculate pages
-    pages = (total + limit - 1) // limit  # Ceiling division
+    page, limit, skip = _validate_pagination(page, limit)
+    sort, order = _validate_sort_params(sort, order)
+    
+    logger.debug(
+        f"Listing users: page={page} limit={limit} "
+        f"filters=(email={email}, domain={email_domain}) sort={sort} order={order}"
+    )
+    
+    users, total = await crud_list_users(
+        skip, limit, email=email, email_domain=email_domain, sort=sort, order=order
+    )
+    
+    pages = (total + limit - 1) // limit
     logger.debug(f"Found {len(users)} users (total={total})")
-    # Convert ORM objects to Pydantic schemas
-    items = [
-        UserOut(
-            id=u.id,
-            name=u.name,
-            email=u.email,
-            is_active=u.is_active,
-            created_at=u.created_at,
-        )
-        for u in users
-    ]
+    
+    items = [_convert_to_user_out(u) for u in users]
+    
     return PaginatedUserResponse(
         items=items,
         total=total,
@@ -154,15 +184,15 @@ async def list_users(
         pages=pages
     )
 
+# ==================== Batch Operations ====================
+
 
 async def batch_create_users(data: BatchCreateRequest) -> BatchCreateResponse:
-    """Create multiple users in a single request.
-    Returns created users and a count. On duplicate email in the DB, raises HTTP 400.
-    Large batches are automatically chunked for efficient processing.
-    """
-    # Validate batch size
+    """Create multiple users in a single request with automatic chunking."""
     if len(data.items) > settings.MAX_BATCH_SIZE:
-        logger.warning(f"Batch create rejected: size {len(data.items)} exceeds maximum {settings.MAX_BATCH_SIZE}")
+        logger.warning(
+            f"Batch create rejected: size {len(data.items)} exceeds maximum {settings.MAX_BATCH_SIZE}"
+        )
         raise HTTPException(
             status_code=400,
             detail={
@@ -171,9 +201,10 @@ async def batch_create_users(data: BatchCreateRequest) -> BatchCreateResponse:
                 "details": {"provided": len(data.items), "maximum": settings.MAX_BATCH_SIZE}
             }
         )
+    
     logger.info(f"Batch creating {len(data.items)} users")
+    
     try:
-        # Hash passwords for all users before inserting
         items = [
             {
                 "name": u.name,
@@ -183,16 +214,8 @@ async def batch_create_users(data: BatchCreateRequest) -> BatchCreateResponse:
             for u in data.items
         ]
         users = await crud_insert_users(items)
-        created_items = [
-            UserOut(
-                id=u.id,
-                name=u.name,
-                email=u.email,
-                is_active=u.is_active,
-                created_at=u.created_at,
-            )
-            for u in users
-        ]
+        created_items = [_convert_to_user_out(u) for u in users]
+        
         logger.info(f"Batch create completed: {len(created_items)} users created")
         return BatchCreateResponse(items=created_items, created=len(created_items))
     except ValueError as e:
@@ -208,12 +231,11 @@ async def batch_create_users(data: BatchCreateRequest) -> BatchCreateResponse:
 
 
 async def batch_delete_users(req: BatchDeleteRequest) -> BatchDeleteResponse:
-    """Delete multiple users by id and return deleted snapshots and count.
-    Large batches are automatically chunked for efficient processing.
-    """
-    # Validate batch size
+    """Delete multiple users by ID with batch cache invalidation."""
     if len(req.ids) > settings.MAX_BATCH_SIZE:
-        logger.warning(f"Batch delete rejected: size {len(req.ids)} exceeds maximum {settings.MAX_BATCH_SIZE}")
+        logger.warning(
+            f"Batch delete rejected: size {len(req.ids)} exceeds maximum {settings.MAX_BATCH_SIZE}"
+        )
         raise HTTPException(
             status_code=400,
             detail={
@@ -222,29 +244,21 @@ async def batch_delete_users(req: BatchDeleteRequest) -> BatchDeleteResponse:
                 "details": {"provided": len(req.ids), "maximum": settings.MAX_BATCH_SIZE}
             }
         )
+    
     logger.info(f"Batch deleting {len(req.ids)} users")
     deleted = await crud_delete_users(req.ids)
     
-    # Invalidate cache for deleted users
+    # Batch invalidate cache
     if settings.CACHE_ENABLED:
         for user in deleted:
-            user_id_key = make_cache_key(USER_BY_ID_PREFIX, user.id)
-            user_email_key = make_cache_key(USER_BY_EMAIL_PREFIX, user.email)
-            await cache_manager.delete(user_id_key)
-            await cache_manager.delete(user_email_key)
+            await _invalidate_user_cache(user)
     
     logger.info(f"Batch delete completed: {len(deleted)} users deleted")
-    items = [
-        UserOut(
-            id=u.id,
-            name=u.name,
-            email=u.email,
-            is_active=u.is_active,
-            created_at=u.created_at,
-        )
-        for u in deleted
-    ]
+    items = [_convert_to_user_out(u) for u in deleted]
+    
     return BatchDeleteResponse(items=items, deleted=len(items))
+
+# ==================== Search ====================
 
 
 async def search_users(
@@ -255,53 +269,27 @@ async def search_users(
     order: str = "asc",
 ) -> PaginatedUserResponse:
     """Search users by name or email with pagination and sorting."""
-    # Validate inputs
-    if page < 1:
-        page = settings.DEFAULT_PAGE
-    if limit < 1:
-        limit = settings.DEFAULT_LIMIT
-    if limit > settings.MAX_LIMIT:
-        limit = settings.MAX_LIMIT
-    if sort not in ["id", "name", "email"]:
-        sort = "id"
-    if order not in ["asc", "desc"]:
-        order = "asc"
+    page, limit, skip = _validate_pagination(page, limit)
+    sort, order = _validate_sort_params(sort, order)
     
-    skip = (page - 1) * limit
     logger.info(f"Searching users: query='{q}' page={page} limit={limit}")
     users, total = await crud_search_users(q, skip, limit, sort, order)
     pages = (total + limit - 1) // limit
     logger.info(f"Search completed: found {total} matching users")
-    items = [
-        UserOut(
-            id=u.id,
-            name=u.name,
-            email=u.email,
-            is_active=u.is_active,
-            created_at=u.created_at,
-        )
-        for u in users
-    ]
-    return PaginatedUserResponse(items=items, total=total, page=page, limit=limit, pages=pages)
+    
+    items = [_convert_to_user_out(u) for u in users]
+    
+    return PaginatedUserResponse(
+        items=items, total=total, page=page, limit=limit, pages=pages
+    )
+
+# ==================== Authentication ====================
 
 
 async def register_user(data: UserRegister) -> UserOut:
-    """Register a new user with password authentication and cache it.
-    
-    Creates a new user account with hashed password. Raises HTTP 400 on duplicate email.
-    
-    Args:
-        data: UserRegister schema containing name, email, and password
-        
-    Returns:
-        UserOut: The created user data (without password)
-        
-    Raises:
-        HTTPException: 400 if email already exists
-    """
+    """Register a new user with password authentication and caching."""
     logger.info(f"Registering new user: {data.email}")
     
-    # Check if email already exists (check DB, not cache)
     existing_user = await select_user_by_email(data.email)
     if existing_user:
         logger.warning(f"Registration failed - email already exists: {data.email}")
@@ -314,36 +302,17 @@ async def register_user(data: UserRegister) -> UserOut:
             }
         )
     
-    # Hash the password
     hashed_password = hash_password(data.password)
     
-    # Create the user
     try:
         user = await insert_user(data.name, data.email, hashed_password)
         logger.info(f"User registered successfully: id={user.id} email={user.email}")
         
-        user_out = UserOut(
-            id=user.id,
-            name=user.name,
-            email=user.email,
-            is_active=user.is_active,
-            created_at=user.created_at,
-        )
-        
-        # Cache the new user
-        if settings.CACHE_ENABLED:
-            await cache_manager.set(
-                make_cache_key(USER_BY_ID_PREFIX, user.id),
-                user_out.model_dump()
-            )
-            await cache_manager.set(
-                make_cache_key(USER_BY_EMAIL_PREFIX, user.email),
-                user_out.model_dump()
-            )
+        user_out = _convert_to_user_out(user)
+        await _cache_user(user_out)
         
         return user_out
     except ValueError as e:
-        # This should be rare since we already checked for duplicates
         logger.error(f"Unexpected error during registration for {data.email}: {str(e)}")
         raise HTTPException(
             status_code=400,
@@ -355,44 +324,12 @@ async def register_user(data: UserRegister) -> UserOut:
         ) from e
 
 
-async def _get_user_by_email_with_cache(email: str):
-    """Internal helper to get user by email with caching.
-    
-    Returns the full User model (including hashed_password) for authentication.
-    """
-    # Try cache first if enabled
-    if settings.CACHE_ENABLED:
-        cache_key = make_cache_key(USER_BY_EMAIL_PREFIX, email)
-        cached_data = await cache_manager.get(cache_key)
-        if cached_data:
-            # Cache only has UserOut data, need to fetch from DB for password
-            # So we only use cache as a hint that user exists
-            pass
-    
-    # Fetch from DB (we need the hashed_password which isn't cached)
-    return await select_user_by_email(email)
-
-
 async def authenticate_user(data: UserLogin) -> Token:
-    """Authenticate a user and return a JWT access token.
-    
-    Verifies user credentials and generates a JWT token for authenticated requests.
-    
-    Args:
-        data: UserLogin schema containing email and password
-        
-    Returns:
-        Token: JWT access token and token type
-        
-    Raises:
-        HTTPException: 401 if credentials are invalid or user is inactive
-    """
+    """Authenticate a user and return a JWT access token."""
     logger.info(f"Authentication attempt for user: {data.email}")
     
-    # Fetch user by email (no cache for auth - need password hash)
     user = await select_user_by_email(data.email)
     
-    # Verify user exists
     if not user:
         logger.warning(f"Authentication failed - user not found: {data.email}")
         raise HTTPException(
@@ -404,7 +341,6 @@ async def authenticate_user(data: UserLogin) -> Token:
             }
         )
     
-    # Verify password
     if not verify_password(data.password, user.hashed_password):
         logger.warning(f"Authentication failed - invalid password for user: {data.email}")
         raise HTTPException(
@@ -416,7 +352,6 @@ async def authenticate_user(data: UserLogin) -> Token:
             }
         )
     
-    # Check if user is active
     if not user.is_active:
         logger.warning(f"Authentication failed - user is inactive: {data.email}")
         raise HTTPException(
@@ -428,7 +363,6 @@ async def authenticate_user(data: UserLogin) -> Token:
             }
         )
     
-    # Create access token
     access_token = create_access_token(data={"sub": str(user.id)})
     logger.info(f"Authentication successful for user: {data.email} (id={user.id})")
     

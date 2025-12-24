@@ -6,9 +6,7 @@ Tests all CRUD operations, pagination, filtering, search, and batch operations.
 import pytest
 
 
-# ============================================================================
-# POST /auth/register - Create User with Authentication
-# ============================================================================
+# ==================== POST /auth/register - Create User ====================
 
 @pytest.mark.asyncio
 async def test_create_user_success(client, sample_user):
@@ -131,9 +129,7 @@ async def test_create_user_name_trimmed(client):
     assert data["name"] == "John Doe"  # Should be trimmed
 
 
-# ============================================================================
-# GET /users/{user_id} - Read User
-# ============================================================================
+# ==================== GET /users/{user_id} - Read User ====================
 
 @pytest.mark.asyncio
 async def test_get_user_success(client, sample_user):
@@ -171,9 +167,7 @@ async def test_get_user_invalid_id(client):
     assert response.status_code == 422
 
 
-# ============================================================================
-# DELETE /users/{user_id} - Delete User
-# ============================================================================
+# ==================== DELETE /users/{user_id} - Delete User ====================
 
 @pytest.mark.asyncio
 async def test_delete_user_success(client, sample_user):
@@ -206,9 +200,7 @@ async def test_delete_user_not_found(client):
     assert "does not exist" in detail["message"]
 
 
-# ============================================================================
-# GET /users - List Users
-# ============================================================================
+# ==================== GET /users - List Users ====================
 
 @pytest.mark.asyncio
 async def test_list_users_empty(client):
@@ -367,9 +359,7 @@ async def test_list_users_invalid_sort_field(client, sample_users):
     # Should default to sorting by id
 
 
-# ============================================================================
-# GET /users/search - Search Users
-# ============================================================================
+# ==================== GET /users/search - Search Users ====================
 
 @pytest.mark.asyncio
 async def test_search_users_by_name(client, sample_users):
@@ -473,9 +463,7 @@ async def test_search_users_with_pagination(client, sample_users):
     assert data["limit"] == 2
 
 
-# ============================================================================
-# POST /users/batch-create - Batch Create Users
-# ============================================================================
+# ==================== POST /users/batch-create - Batch Create ====================
 
 @pytest.mark.asyncio
 async def test_batch_create_success(client, sample_users):
@@ -552,9 +540,7 @@ async def test_batch_create_chunking(client):
     assert len(data["items"]) == 150
 
 
-# ============================================================================
-# POST /users/batch-delete - Batch Delete Users
-# ============================================================================
+# ==================== POST /users/batch-delete - Batch Delete ====================
 
 @pytest.mark.asyncio
 async def test_batch_delete_success(client, sample_users):

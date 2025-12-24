@@ -1,4 +1,4 @@
-# Authentication utilities - password hashing and JWT token management
+"""Authentication utilities for password hashing and JWT token management."""
 
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
@@ -6,15 +6,10 @@ import bcrypt
 from .config import settings
 
 
+# ==================== Password Hashing ====================
+
 def hash_password(password: str) -> str:
-    """Hash a plain text password using bcrypt.
-    
-    Args:
-        password: Plain text password to hash
-        
-    Returns:
-        Hashed password string safe for database storage
-    """
+    """Hash a plain text password using bcrypt for secure storage."""
     # bcrypt requires bytes and returns bytes
     password_bytes = password.encode('utf-8')
     salt = bcrypt.gensalt()
@@ -24,30 +19,16 @@ def hash_password(password: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify a plain text password against a hashed password.
-    
-    Args:
-        plain_password: Plain text password from user
-        hashed_password: Hashed password from database
-        
-    Returns:
-        True if password matches, False otherwise
-    """
+    """Verify a plain text password against a hashed password."""
     password_bytes = plain_password.encode('utf-8')
     hashed_bytes = hashed_password.encode('utf-8')
     return bcrypt.checkpw(password_bytes, hashed_bytes)
 
 
+# ==================== JWT Token Management ====================
+
 def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
-    """Create a JWT access token.
-    
-    Args:
-        data: Dictionary of claims to encode in the token (e.g., {"sub": user_id})
-        expires_delta: Optional custom expiration time. Defaults to settings.JWT_EXPIRATION_MINUTES
-        
-    Returns:
-        Encoded JWT token string
-    """
+    """Create a JWT access token with optional expiration. Defaults to configured expiration time."""
     to_encode = data.copy()
     
     # Set expiration time
@@ -64,14 +45,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
 
 
 def decode_access_token(token: str) -> dict | None:
-    """Decode and verify a JWT access token.
-    
-    Args:
-        token: JWT token string to decode
-        
-    Returns:
-        Dictionary of token claims if valid, None if invalid or expired
-    """
+    """Decode and verify a JWT token. Returns payload dict if valid, None if invalid or expired."""
     try:
         payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
         return payload

@@ -1,19 +1,19 @@
-# Pydantic models for request/response VALIDATION & serialization
+"""Pydantic schemas for request/response validation and serialization."""
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 from .config import settings
 
 
-# Error Response Schema
+# ==================== Error Schemas ====================
+
 class ErrorResponse(BaseModel):
     """Standardized error response with code and message."""
-    error: str  # Error code (e.g., "USER_NOT_FOUND")
-    message: str  # Human-readable message
-    details: dict | None = None  # Optional additional context
+    error: str
+    message: str
+    details: dict | None = None
 
 
-# Error Codes
 class ErrorCode:
     """Centralized error codes for API responses."""
     USER_NOT_FOUND = "USER_NOT_FOUND"
@@ -22,7 +22,10 @@ class ErrorCode:
     INVALID_INPUT = "INVALID_INPUT"
 
 
+# ==================== User Schemas ====================
+
 class UserOut(BaseModel):
+    """User output schema without password."""
     id: int
     name: str = Field(..., max_length=settings.USER_NAME_MAX_LENGTH)
     email: EmailStr = Field(..., max_length=settings.USER_EMAIL_MAX_LENGTH)
@@ -30,7 +33,8 @@ class UserOut(BaseModel):
     created_at: datetime
 
 
-# Authentication Schemas
+# ==================== Authentication Schemas ====================
+
 class UserRegister(BaseModel):
     """Schema for user registration with password."""
     name: str = Field(..., min_length=1, max_length=settings.USER_NAME_MAX_LENGTH, description="User's full name")
@@ -72,7 +76,10 @@ class TokenData(BaseModel):
     user_id: int | None = None
 
 
-class PaginatedUserResponse(BaseModel): # pagination
+# ==================== Pagination Schemas ====================
+
+class PaginatedUserResponse(BaseModel):
+    """Paginated response with user items and metadata."""
     items: list[UserOut]
     total: int
     page: int
@@ -80,19 +87,25 @@ class PaginatedUserResponse(BaseModel): # pagination
     pages: int
 
 
+# ==================== Batch Operation Schemas ====================
+
 class BatchCreateRequest(BaseModel):
+    """Request schema for batch user creation."""
     items: list[UserRegister]
 
 
 class BatchCreateResponse(BaseModel):
+    """Response schema for batch user creation."""
     items: list[UserOut]
     created: int
 
 
 class BatchDeleteRequest(BaseModel):
+    """Request schema for batch user deletion."""
     ids: list[int]
 
 
 class BatchDeleteResponse(BaseModel):
+    """Response schema for batch user deletion."""
     items: list[UserOut]
     deleted: int

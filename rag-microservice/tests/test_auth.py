@@ -1,7 +1,7 @@
 """Unit tests for JWT authentication."""
 
 import pytest
-from jose import jwt, JWTError
+from jose import jwt
 from app.auth import decode_access_token
 
 

@@ -1,7 +1,7 @@
 """Unit tests for LLM response generation."""
 
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 from core.generator import (
     _build_prompt,
     _stream_generator,

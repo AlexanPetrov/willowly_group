@@ -7,11 +7,21 @@ from pydantic import field_validator
 
 
 class Settings(BaseSettings):
-    """Application configuration settings loaded from environment or .env files."""
+    """Application configuration settings loaded from environment or .env files.
+    
+    Supports environment-specific config files:
+    - .env.dev for development
+    - .env.test for testing
+    - .env.prod for production
+    """
 
     @staticmethod
     def get_env_file() -> str | None:
-        """Mirror user-microservice pattern for env file discovery, with .env fallback."""
+        """Determine which .env file to load based on APP_ENV.
+        
+        Returns None if SKIP_ENV_FILE is set, otherwise returns the path to
+        .env.{APP_ENV} or .env if it exists. This mirrors the user-microservice pattern.
+        """
         if os.getenv("SKIP_ENV_FILE"):
             return None
         env = os.getenv("APP_ENV", "dev")
@@ -67,6 +77,7 @@ class Settings(BaseSettings):
     @field_validator("JWT_SECRET_KEY")
     @classmethod
     def validate_jwt_secret(cls, v: str) -> str:
+        """Validate JWT secret is configured and meets minimum length requirements."""
         if not v:
             raise ValueError("SECRET_KEY (JWT secret) is required for RAG auth")
         if len(v) < 16:
@@ -74,6 +85,7 @@ class Settings(BaseSettings):
         return v
 
     def get_cors_origins(self) -> list[str]:
+        """Parse comma-separated CORS origins into a list."""
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
 
 

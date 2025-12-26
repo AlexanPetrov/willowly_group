@@ -11,15 +11,13 @@ from app.config import settings
 from core.retriever import query_chroma, get_chroma_collection
 from core.generator import generate_response
 
-import httpx
-
 router = APIRouter(prefix="/v1")
 
 auth_scheme = HTTPBearer(auto_error=True)
 
 
-async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(auth_scheme)):
-    """Dependency to validate JWT token and extract user ID from 'sub' claim."""
+async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(auth_scheme)) -> str:
+    """Validate JWT token and extract user ID from 'sub' claim."""
     try:
         token = creds.credentials
         payload = decode_access_token(token)
@@ -27,8 +25,9 @@ async def get_current_user(creds: HTTPAuthorizationCredentials = Depends(auth_sc
         if user_id is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
         return user_id
-    except ValueError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+    except ValueError as e:
+        logger.warning("JWT validation failed: %s", e)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from e
 
 @router.post(
     "/query",
@@ -111,11 +110,9 @@ async def rag_query(
             }
         )
 
-    except (httpx.HTTPError, Exception) as e:
-        # Catch upstream errors (Chroma, Ollama, httpx) and other issues
+    except Exception as e:
+        # Catch upstream errors (Chroma, Ollama, etc.)
         logger.exception("Error during /query: %s", e)
-        if isinstance(e, httpx.HTTPError):
-            raise HTTPException(status_code=502, detail=f"Upstream service error: {e}") from e
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 @router.get(

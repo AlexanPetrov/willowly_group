@@ -1,7 +1,7 @@
 """Unit tests for document retrieval logic."""
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import patch, MagicMock
 from core.retriever import (
     _distances_to_similarities,
     _clamp_overrides,

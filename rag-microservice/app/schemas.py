@@ -6,6 +6,7 @@ from app.config import settings
 
 
 class QueryRequest(BaseModel):
+    """Request schema for RAG query endpoint."""
     text: str = Field(..., description="User query text.")
     k: int = Field(
         default=settings.RETRIEVAL_K,
@@ -46,9 +47,10 @@ class DocumentMetadata(BaseModel):
     extra: dict = Field(default_factory=dict, description="Additional metadata fields.")
 
 class QueryResponse(BaseModel):
-    response: str
-    context_docs: list[str]
-    similarities: list[float]
+    """Response schema for RAG query endpoint with retrieval and generation results."""
+    response: str = Field(..., description="Generated answer from the LLM.")
+    context_docs: list[str] = Field(..., description="Retrieved document chunks used for generation.")
+    similarities: list[float] = Field(..., description="Similarity scores for retrieved documents.")
     metadata: list[DocumentMetadata] = Field(default_factory=list, description="Metadata for each retrieved document.")
     retrieval_stats: dict = Field(
         default_factory=dict,

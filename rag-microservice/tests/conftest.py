@@ -78,28 +78,6 @@ def sample_query_request():
 
 
 @pytest.fixture
-def sample_documents():
-    """Sample documents for testing retrieval."""
-    return [
-        {
-            "id": "doc1",
-            "content": "Paris is the capital and largest city of France.",
-            "metadata": {"source": "geography.txt", "page": 1}
-        },
-        {
-            "id": "doc2",
-            "content": "The city of Paris is located on the Seine River.",
-            "metadata": {"source": "geography.txt", "page": 2}
-        },
-        {
-            "id": "doc3",
-            "content": "France is a country in Western Europe.",
-            "metadata": {"source": "geography.txt", "page": 3}
-        }
-    ]
-
-
-@pytest.fixture
 def sample_retrieval_results():
     """Sample ChromaDB retrieval results."""
     return {

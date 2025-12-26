@@ -18,8 +18,10 @@ def set_shutdown_manager(manager):
 
 async def graceful_shutdown_middleware(request: Request, call_next):
     if shutdown_manager and shutdown_manager.is_shutting_down:
+        request_id = getattr(request.state, "request_id", "unknown")
         logger.warning(
-            f"Rejecting request {request.method} {request.url.path} - service is shutting down"
+            "[%s] Rejecting %s %s - service is shutting down",
+            request_id, request.method, request.url.path
         )
         return JSONResponse(
             status_code=503,
@@ -52,19 +54,20 @@ async def add_request_id_middleware(request: Request, call_next):
 async def request_logging_middleware(request: Request, call_next):
     start_time = time.time()
     request_id = getattr(request.state, "request_id", "unknown")
-    logger.info(f"[{request_id}] {request.method} {request.url.path} - Request received")
+    logger.info("[%s] %s %s - Request received", request_id, request.method, request.url.path)
     try:
         response = await call_next(request)
         duration = time.time() - start_time
         logger.info(
-            f"[{request_id}] {request.method} {request.url.path} - "
-            f"Status: {response.status_code} - Duration: {duration:.3f}s"
+            "[%s] %s %s - Status: %d - Duration: %.3fs",
+            request_id, request.method, request.url.path, response.status_code, duration
         )
         return response
     except Exception as e:
         duration = time.time() - start_time
         logger.error(
-            f"[{request_id}] {request.method} {request.url.path} - Error: {str(e)} - Duration: {duration:.3f}s",
+            "[%s] %s %s - Error: %s - Duration: %.3fs",
+            request_id, request.method, request.url.path, str(e), duration,
             exc_info=True,
         )
         raise

@@ -26,6 +26,8 @@ class ErrorCode:
 
 class UserOut(BaseModel):
     """User output schema without password."""
+    model_config = {"from_attributes": True}
+    
     id: int
     name: str = Field(..., max_length=settings.USER_NAME_MAX_LENGTH)
     email: EmailStr = Field(..., max_length=settings.USER_EMAIL_MAX_LENGTH)

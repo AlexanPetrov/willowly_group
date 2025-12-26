@@ -5,7 +5,7 @@ help:
 	@echo ""
 	@echo "Local Development:"
 	@echo "  make install          - Install dependencies using uv"
-	@echo "  make run              - Run the FastAPI server (dev environment)"
+	@echo "  make run              - Run the FastAPI server (port 8000)"
 	@echo "  make dev              - Run server in development mode with auto-reload"
 	@echo "  make prod             - Run server in production mode"
 	@echo "  make test             - Run all tests"

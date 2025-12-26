@@ -4,6 +4,8 @@
 
 A production-ready FastAPI microservice for user management with JWT authentication, built with modern Python async patterns and PostgreSQL.
 
+**Integrates with**: RAG Microservice (port 8001) for document retrieval & LLM generation. Provides JWT tokens used across the platform.
+
 ## 🚀 Features
 
 ### Core Functionality

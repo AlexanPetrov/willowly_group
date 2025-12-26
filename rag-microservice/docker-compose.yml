@@ -1,0 +1,88 @@
+services:
+  # Ollama LLM Service (if not already running locally)
+  # Uncomment to use containerized Ollama instead of local
+  ollama:
+    image: ollama/ollama:latest
+    container_name: rag_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - rag_network
+    environment:
+      OLLAMA_NUM_PARALLEL: 2
+
+  # RAG Microservice
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: rag_microservice_app
+    restart: unless-stopped
+    environment:
+      # Skip .env file loading - use environment variables directly
+      SKIP_ENV_FILE: "true"
+
+      # Application environment
+      APP_ENV: dev
+
+      # Security (development keys - change in production!)
+      SECRET_KEY: dev-secret-key-change-in-production-minimum-32-chars
+      JWT_SECRET_KEY: dev-jwt-secret-key-change-in-production-minimum-32-chars
+      JWT_ALGORITHM: HS256
+
+      # CORS - permissive for local development
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000
+
+      # ChromaDB - use volume mount path
+      CHROMA_PATH: /app/data/chroma_db
+      CHROMA_COLLECTION_NAME: rag_docs
+      CHROMA_DISTANCE: cosine
+
+      # Retrieval settings
+      RETRIEVAL_K: 3
+      MIN_SIMILARITY: 0.65
+
+      # LLM settings
+      # Point to host machine Ollama if not containerized, or use 'ollama' service name if enabled above
+      OLLAMA_HOST: http://ollama:11434
+      GEN_MODEL: llama3.1:8b
+      NUM_CTX: 4096
+      NUM_PREDICT: 512
+      TEMPERATURE: 0.25
+
+      # Logging
+      LOG_LEVEL: DEBUG
+
+      # Metrics
+      ENABLE_METRICS: "true"
+
+    ports:
+      - "8000:8000"
+
+    volumes:
+      # Mount source code for development (hot reload)
+      - ./app:/app/app:ro
+      - ./core:/app/core:ro
+      - ./tests:/app/tests:ro
+      # ChromaDB persistent storage
+      - ./data/chroma_db:/app/data/chroma_db
+
+    networks:
+      - rag_network
+
+    # Development command with auto-reload
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+    # Ensure Ollama starts before app (no healthcheck required)
+    depends_on:
+      - ollama
+
+networks:
+  rag_network:
+    driver: bridge
+
+volumes:
+  ollama_data:

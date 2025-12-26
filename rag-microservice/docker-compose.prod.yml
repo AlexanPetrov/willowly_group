@@ -1,0 +1,30 @@
+services:
+  app:
+    environment:
+      # Override development settings for production
+      APP_ENV: prod
+      LOG_LEVEL: INFO
+
+      # Production secrets - MUST be set via environment or secrets manager
+      SECRET_KEY: ${SECRET_KEY}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+
+      # Production CORS - strict origins
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+
+      # Production Ollama (container or remote service)
+      OLLAMA_HOST: ${OLLAMA_HOST}
+
+      # Retrieval tuning for production
+      RETRIEVAL_K: 3
+      MIN_SIMILARITY: 0.70
+
+    # Production deployment doesn't need hot reload
+    command: python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
+
+    # No volume mounts for code in production
+    volumes:
+      # Only persist ChromaDB data
+      - ./data/chroma_db:/app/data/chroma_db
+
+    restart: always

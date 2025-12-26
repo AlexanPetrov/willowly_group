@@ -1,0 +1,13 @@
+rag_notes.txt
+__pycache__/
+*.pyc
+.env
+.env.dev
+.env.test
+.env.prod
+.env.local
+!.env.test.example
+!.env.prod.example
+.venv
+
+notes.txt

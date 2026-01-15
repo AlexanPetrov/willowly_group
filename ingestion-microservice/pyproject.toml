@@ -7,7 +7,7 @@ name = "ingestion-microservice"
 version = "0.1.0"
 description = "Async document ingestion pipeline for ChromaDB vector database"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.13,<3.14"
 dependencies = [
     "pydantic>=2.11.0",
     "pydantic-settings>=2.6.0",

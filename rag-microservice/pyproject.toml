@@ -7,7 +7,7 @@ name = "rag-microservice"
 version = "0.1.0"
 description = "Retrieval-Augmented Generation (RAG) microservice with vector search and LLM response generation"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "fastapi>=0.116.0",
     "uvicorn[standard]>=0.35.0",

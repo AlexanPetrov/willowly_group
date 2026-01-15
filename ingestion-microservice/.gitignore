@@ -1,4 +1,10 @@
-ingestion_notes.txt
 __pycache__/
 .env
 .venv
+.vscode/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+*.log
+notes.txt

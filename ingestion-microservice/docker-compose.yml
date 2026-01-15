@@ -1,0 +1,131 @@
+services:
+  # Ollama LLM Service
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ingestion_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "ollama", "--version"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ingestion_network
+
+  # Redis for Celery
+  redis:
+    image: redis:7-alpine
+    container_name: ingestion_redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ingestion_network
+    volumes:
+      - redis_data:/data
+
+  # Celery Worker
+  celery_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: ingestion_celery_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: dev
+      LOG_LEVEL: INFO
+      OLLAMA_HOST: http://ollama:11434
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      CHROMA_PATH: /data/chroma_db
+      RAW_DATA_DIR: /data/raw
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ../data:/data
+    networks:
+      - ingestion_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    command: celery -A app.tasks.celery_app worker --pool=solo --loglevel=info
+
+  # FastAPI Server (for API endpoint)
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: ingestion_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      APP_ENV: dev
+      LOG_LEVEL: INFO
+      REDIS_URL: redis://redis:6379/0
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      CHROMA_PATH: /data/chroma_db
+      RAW_DATA_DIR: /data/raw
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - ../data:/data
+    ports:
+      - "8003:8003"
+    networks:
+      - ingestion_network
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8003 --reload
+
+  # CLI App (for admin ingestion - optional, keeps CLI functionality)
+  cli:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: ingestion_cli
+    env_file:
+      - .env
+    environment:
+      APP_ENV: dev
+      LOG_LEVEL: INFO
+      OLLAMA_HOST: http://ollama:11434
+      CHROMA_PATH: /data/chroma_db
+      RAW_DATA_DIR: /data/raw
+    volumes:
+      - ../data:/data
+    networks:
+      - ingestion_network
+    depends_on:
+      ollama:
+        condition: service_healthy
+    command: python cli.py ingest
+    profiles:
+      - cli
+
+volumes:
+  ollama_data:
+  redis_data:
+
+networks:
+  ingestion_network:
+    driver: bridge

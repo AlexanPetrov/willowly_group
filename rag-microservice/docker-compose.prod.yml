@@ -24,7 +24,7 @@ services:
 
     # No volume mounts for code in production
     volumes:
-      # Only persist ChromaDB data
-      - ./data/chroma_db:/app/data/chroma_db
+      # Only persist shared ChromaDB data
+      - ../data:/data
 
     restart: always

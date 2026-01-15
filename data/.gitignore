@@ -1,0 +1,22 @@
+# ChromaDB (vector database)
+chroma_db/
+*.sqlite3
+*.sqlite
+
+# Raw input files (large, not version controlled)
+raw/
+*.pdf
+*.txt
+
+# Logs and metadata
+*.log
+*.json
+!.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak

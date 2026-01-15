@@ -36,8 +36,8 @@ services:
       # CORS - permissive for local development
       ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:8000
 
-      # ChromaDB - use volume mount path
-      CHROMA_PATH: /app/data/chroma_db
+      # ChromaDB - shared data directory
+      CHROMA_PATH: /data/chroma_db
       CHROMA_COLLECTION_NAME: rag_docs
       CHROMA_DISTANCE: cosine
 
@@ -67,8 +67,8 @@ services:
       - ./app:/app/app:ro
       - ./core:/app/core:ro
       - ./tests:/app/tests:ro
-      # ChromaDB persistent storage
-      - ./data/chroma_db:/app/data/chroma_db
+      # Shared ChromaDB persistent storage
+      - ../data:/data
 
     networks:
       - rag_network

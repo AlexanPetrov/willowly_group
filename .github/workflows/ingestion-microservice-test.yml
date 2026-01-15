@@ -1,0 +1,108 @@
+name: Ingestion Microservice Test
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'ingestion-microservice/**'
+      - '.github/workflows/ingestion-microservice-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'ingestion-microservice/**'
+      - '.github/workflows/ingestion-microservice-test.yml'
+
+defaults:
+  run:
+    working-directory: ingestion-microservice
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        APP_NAME=Ingestion Microservice
+        APP_ENV=test
+        JWT_SECRET_KEY=test-secret-key-minimum-32-characters-long-for-testing
+        JWT_ALGORITHM=HS256
+        REDIS_URL=redis://localhost:6379/0
+        CELERY_BROKER_URL=redis://localhost:6379/0
+        CELERY_RESULT_BACKEND=redis://localhost:6379/1
+        OLLAMA_HOST=http://localhost:11434
+        CHROMA_PATH=../data/chroma_db
+        RAW_DATA_DIR=../data/raw
+        UPLOAD_DIR=../data/uploads
+        API_HOST=0.0.0.0
+        API_PORT=8003
+        LOG_LEVEL=INFO
+        EMB_MODEL=nomic-embed-text
+        CHUNK_TOKENS=800
+        CHUNK_OVERLAP_TOKENS=140
+        INGEST_BATCH_SIZE=128
+        MAX_WORKERS=4
+        EOF
+    
+    - name: Start services
+      working-directory: ingestion-microservice
+      run: |
+        docker compose up -d redis ollama
+        sleep 5
+    
+    - name: Wait for Redis
+      working-directory: ingestion-microservice
+      run: |
+        until docker compose exec -T redis redis-cli ping; do
+          echo "Waiting for Redis..."
+          sleep 2
+        done
+    
+    - name: Wait for Ollama
+      working-directory: ingestion-microservice
+      run: |
+        until docker compose exec -T ollama ollama --version; do
+          echo "Waiting for Ollama..."
+          sleep 2
+        done
+        echo "Ollama is ready"
+        sleep 3
+    
+    - name: Pull Ollama embedding model
+      working-directory: ingestion-microservice
+      run: |
+        docker compose exec -T ollama ollama pull nomic-embed-text || echo "Model pull failed, continuing..."
+        sleep 2
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Run tests
+      run: uv run pytest -v --tb=short
+      env:
+        APP_ENV: test
+        JWT_SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
+        REDIS_URL: redis://localhost:6379/0
+        CELERY_BROKER_URL: redis://localhost:6379/0
+        CELERY_RESULT_BACKEND: redis://localhost:6379/1
+        OLLAMA_HOST: http://localhost:11434
+        LOG_LEVEL: INFO
+    
+    - name: Stop services
+      working-directory: ingestion-microservice
+      if: always()
+      run: docker compose down -v

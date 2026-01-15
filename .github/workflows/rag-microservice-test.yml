@@ -1,0 +1,98 @@
+name: RAG Microservice Test
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'rag-microservice/**'
+      - '.github/workflows/rag-microservice-test.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'rag-microservice/**'
+      - '.github/workflows/rag-microservice-test.yml'
+
+defaults:
+  run:
+    working-directory: rag-microservice
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+      with:
+        version: "latest"
+    
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        APP_ENV=test
+        LOG_LEVEL=INFO
+        SECRET_KEY=test-secret-key-minimum-32-characters-long-for-testing
+        JWT_SECRET_KEY=test-jwt-secret-key-minimum-32-characters-long-for-testing
+        JWT_ALGORITHM=HS256
+        ALLOWED_ORIGINS=http://localhost:3000
+        CHROMA_PATH=../data/chroma_db
+        CHROMA_COLLECTION_NAME=rag_docs
+        CHROMA_DISTANCE=cosine
+        RETRIEVAL_K=3
+        MIN_SIMILARITY=0.65
+        OLLAMA_HOST=http://localhost:11434
+        GEN_MODEL=llama3.1:8b
+        NUM_CTX=4096
+        NUM_PREDICT=512
+        TEMPERATURE=0.25
+        ENABLE_METRICS=true
+        EOF
+    
+    - name: Start Ollama service
+      working-directory: rag-microservice
+      run: |
+        docker compose up -d ollama
+        sleep 5
+    
+    - name: Wait for Ollama
+      working-directory: rag-microservice
+      run: |
+        until docker compose exec -T ollama ollama --version; do
+          echo "Waiting for Ollama..."
+          sleep 2
+        done
+        echo "Ollama is ready"
+        sleep 3
+    
+    - name: Pull Ollama models
+      working-directory: rag-microservice
+      run: |
+        docker compose exec -T ollama ollama pull llama3.1:8b || echo "Model pull failed, continuing..."
+        docker compose exec -T ollama ollama pull nomic-embed-text || echo "Embedding model pull failed, continuing..."
+        sleep 2
+    
+    - name: Install dependencies
+      run: uv sync
+    
+    - name: Run tests
+      run: uv run pytest -v --tb=short
+      env:
+        APP_ENV: test
+        SECRET_KEY: test-secret-key-minimum-32-characters-long-for-testing
+        JWT_SECRET_KEY: test-jwt-secret-key-minimum-32-characters-long-for-testing
+        OLLAMA_HOST: http://localhost:11434
+        LOG_LEVEL: INFO
+        ENABLE_METRICS: "true"
+    
+    - name: Stop services
+      working-directory: rag-microservice
+      if: always()
+      run: docker compose down -v

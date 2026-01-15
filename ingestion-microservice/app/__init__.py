@@ -1,0 +1,1 @@
+"""Ingestion microservice application package."""

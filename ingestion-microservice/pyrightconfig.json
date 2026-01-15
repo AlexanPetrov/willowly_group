@@ -1,0 +1,22 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/pyright/main/packages/pyright-schemas/config.schema.json",
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.13",
+  "typeCheckingMode": "basic",
+  "include": ["."],
+  "exclude": [".venv", "__pycache__", ".pytest_cache"],
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "pythonVersion": "3.13",
+      "pythonPath": ".venv/bin/python",
+      "extraPaths": [
+        ".",                        
+        ".venv/lib/python3.13/site-packages"
+      ]
+    }
+  ],
+  "reportMissingImports": "warning",
+  "reportMissingTypeStubs": false
+}

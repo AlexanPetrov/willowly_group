@@ -1,0 +1,5 @@
+# Willowly Group
+
+Willowly Group is a microservices-based platform that enables secure document ingestion, vector storage, and retrieval-augmented generation (RAG) for intelligent document search and question answering. The system consists of three core microservices: the **User Microservice** handles authentication and user management with JWT tokens, the **Ingestion Microservice** processes documents (PDFs and text files) into vector embeddings stored in ChromaDB using Ollama, and the **RAG Microservice** performs semantic search over stored documents and generates contextual answers using LLM models. All services share a common data directory for ChromaDB vector storage and raw documents, with each microservice independently deployable via Docker and communicating through RESTful APIs with JWT-based authentication.
+
+For detailed setup instructions, configuration, and API documentation, please refer to the individual README files in each microservice directory: [user-microservice](user-microservice/README.md), [ingestion-microservice](ingestion-microservice/README.md), and [rag-microservice](rag-microservice/README.md).
